@@ -31,7 +31,7 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. Click Start new round. The slider stands in for an EEG score. Arrow keys add practice steering. All of this is simulation, not recorded or live EEG.
+Open http://127.0.0.1:5173. The session panel contains only round controls; input setup lives in the Connection Lab. Run the backend below, then choose recorded EEG or explicitly labeled synthetic input to develop without hardware.
 
 ## Run the EEG backend
 
@@ -44,7 +44,7 @@ python -m pip install -r backend/requirements.txt
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-Run the frontend in a second terminal. The connection lab lists local BrainFlow recordings and serial ports. Select a recording and Connect / restart, wait for the 60-second valid-data baseline, then select Local backend stream and start a round. Live Cyton uses the same processing path with the USB serial port. Close the OpenBCI GUI board session before connecting directly. The backend starts disconnected. Choose live Cyton, replay, or explicitly enabled simulation. An open session alone is not a verified connection: fresh samples must arrive. Live sessions without samples time out after five seconds of acquisition.
+Run the frontend in a second terminal. The connection lab lists local BrainFlow recordings and serial ports. Select a recording and Connect / restart, wait for the 60-second valid-data baseline, then start a round. The game uses the backend stream automatically. Live Cyton uses the same processing path with the USB serial port. Close the OpenBCI GUI board session before connecting directly. The backend starts disconnected. Choose live Cyton, replay, or explicitly enabled simulation. An open session alone is not a verified connection: fresh samples must arrive. Live sessions without samples time out after five seconds of acquisition.
 
 Recordings default to `~/Documents/OpenBCI_GUI/Recordings`. Set `BCI_RECORDINGS_DIR` to another folder before starting the backend if needed. Raw recordings stay outside Git. Replay stops at the end; reconnect to restart. See [replay and debugging instructions](docs/replay-and-connection.md).
 
@@ -62,7 +62,7 @@ Production assets are written to `apps/web/dist`. Development is local: this pro
 
 ## Current status
 
-Implemented: responsive React shell, Phaser renderer, fixed-step constrained simulation, 60-second round, time-in-zone score, manual score slider, Python WebSocket stream, Cyton BrainFlow replay and direct-live adapters, relative-alpha feature, robust 60-second baseline, diagnostic panel, input validation and stale-input pause.
+Implemented: responsive React shell, Phaser renderer, fixed-step rolling simulation with falling and round-ending losses, 60-second round, time-in-zone score, Python WebSocket stream, Cyton BrainFlow replay and direct-live adapters, relative-alpha feature, robust 60-second baseline, diagnostic panel, input validation and stale-input pause.
 
 Still to verify: physical Cyton connection, intentional EEG control, and feature/channel choices on club participants. Planned: stronger artifact assessment, session recording, formal input-mode switching, and model evaluation. The current quality gate is an experimental amplitude/flatness check; the synthetic baseline is bypassed and labeled.
 

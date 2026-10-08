@@ -19,7 +19,7 @@ The 250 Hz value shown is the board’s expected rate. Packet age and sample cou
 2. In Connection lab choose Recorded Cyton EEG, select a BrainFlow file, and Connect / restart.
 3. Check that received samples increase and packet age stays low. Initial quality is poor until two seconds of samples arrive.
 4. Wait for baseline Ready. Progress counts valid EEG windows, so a noisy recording can take longer than one minute.
-5. Select Local backend stream, start a round, and inspect the changing assistance percentage.
+5. Start a round and inspect the changing assistance percentage.
 6. Disconnect during play. Input must become poor and pause the game. Reconnect/recalibrate and explicitly resume or start anew.
 7. Try more than one recording. Record a short UI video showing **replay** prominently. Do not describe replay as a live brain-control demo.
 
@@ -44,7 +44,7 @@ These are person-hours, assuming the current prototype and recorded data:
 |---|---|---:|---|
 | Data / you | Run several recordings, select verified electrodes, inspect artifacts, compare relative alpha to other candidate features | 3–5 h | Reproducible replay calibration and a documented channel choice |
 | UI / Porter | Improve diagnostics layout, calibration instructions and distinct source/status states | 3–5 h | A teammate can connect and diagnose a missing backend without help |
-| Game | Tune score-to-disturbance mapping and disable keyboard steering for scored EEG rounds | 2–4 h | Replay visibly changes assistance; fair scoring remains understandable |
+| Game | Tune assistance and difficulty across EEG recordings | 2–4 h | Replay visibly changes assistance; fair scoring remains understandable |
 | Integration | Add source-session IDs, explicit stale recovery, recorded-session tests and a demo checklist | 3–5 h | Switching inputs never mixes rounds or old calibration |
 | Hardware | Tomorrow’s smoke test; next week’s proper participant setup | 0.5 h tomorrow + 1–2 h later | Live samples, baseline, game and clean reconnect verified |
 
@@ -61,3 +61,7 @@ No trained model is required for this milestone. Simulation/replay success is no
 The backend starts disconnected; the UI starts with live Cyton selected and requires explicit port selection. Replay and synthetic simulation display an explicit no-live-headset message. `session_open` describes SDK ownership, `receiving_samples` describes sample receipt within two seconds, and `live_verified` requires both fresh samples and live Cyton source. `connected` now describes fresh sample receipt, never merely an open session. It does not validate electrode contact.
 
 Opening a live board starts a waiting state. If no samples arrive within five seconds after acquisition starts, the service releases the board and reports an error. A previously working stream becomes stalled after two seconds without new samples. Frames fail closed on stale or disconnected input even between worker ticks. Disconnect clears calibration; calibration requests without incoming samples return HTTP 409.
+
+## Game control update
+
+The session panel no longer has manual mode, a score slider or keyboard steering. Input comes automatically from the Connection Lab. Low assistance reduces stabilizing feedback and increases disturbances; high assistance strengthens feedback and reduces disturbances. Crossing either beam end causes a fall animation and ends the round immediately. Scoring and the round timer freeze at loss; Play again resets the ball. Synthetic development input remains explicitly labeled in the Connection Lab.

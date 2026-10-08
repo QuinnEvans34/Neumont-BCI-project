@@ -26,3 +26,7 @@ Previous status could call synthetic generation or an open SDK session connected
 Fourteen backend tests and two frontend tests passed, plus production build and diff checks. New regression tests cover missing devices, no-sample open sessions and timeout, fresh/stalled live samples, replay versus live verification, explicit simulation and disconnect, failed acquisition cleanup, failed release cleanup, missing-device HTTP errors and calibration rejection without EEG. Hardware states are simulated with mocked SDK input; actual Cyton hardware is still unverified.
 
 Browser checks on this laptop without a headset verified disconnected startup, disabled Connect before selecting a port, explicit simulation labeling, disconnect disabling stream gameplay, and native replay labeling with no claim of live connection.
+
+## Falling and simplified session controls
+
+Removed manual score controls and keyboard steering. Three frontend tests pass, including losses at both beam ends, frozen scoring after loss, a fresh reset, low-assistance loss and high-assistance 60-second completion. Frontend build passes. Rendering animates an exiting ball in world coordinates under gravity.

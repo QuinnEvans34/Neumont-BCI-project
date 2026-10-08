@@ -10,19 +10,20 @@ export default function Game({ controls, onStats }: { controls: Controls; onStat
     class BalanceScene extends Phaser.Scene {
       private state = initialState(); private resetId = -1; private reported = 0;
       private drawing!: Phaser.GameObjects.Graphics;
-      private keys!: Phaser.Types.Input.Keyboard.CursorKeys;
+      private fallTime = 0;
       private accumulator = 0;
-      create() { this.drawing = this.add.graphics(); this.keys = this.input.keyboard!.createCursorKeys(); }
+      create() { this.drawing = this.add.graphics();  }
       update(_time: number, delta: number) {
         const c = current.current;
-        if (this.resetId !== c.reset) { this.state = initialState(); this.resetId = c.reset; this.accumulator = 0; callback.current(this.state); }
+        if (this.resetId !== c.reset) { this.state = initialState(); this.resetId = c.reset; this.accumulator = 0; this.fallTime = 0; callback.current(this.state); }
         if (c.running && !this.state.done) {
           this.accumulator += Math.min(delta / 1000, 0.1);
           while (this.accumulator >= 1 / 120) {
-            this.state = step(this.state, 1 / 120, c.score, Number(this.keys.right.isDown) - Number(this.keys.left.isDown));
+            this.state = step(this.state, 1 / 120, c.score);
             this.accumulator -= 1 / 120;
           }
         }
+        if (this.state.fell) this.fallTime = Math.min(2, this.fallTime + Math.min(delta / 1000, 0.1));
         const g = this.drawing; g.clear();
         g.fillStyle(0x142b30); g.fillEllipse(480, 440, 420, 22);
         g.fillStyle(0x29474b); g.fillTriangle(480, 300, 433, 422, 527, 422);
@@ -35,6 +36,12 @@ export default function Game({ controls, onStats }: { controls: Controls; onStat
         rect(-340, 340, -8, 12, 0xb98b63); rect(-340, 340, -8, -3, 0xe6c49d);
         rect(-51, 51, -11, -8, 0x75e4c1);
         const ball = point(this.state.x * 340, -27);
+        if (this.state.fell) {
+          // Continue off the edge in world coordinates, then fall under gravity.
+          const speed = this.state.velocity * 340;
+          ball.x += speed * cos * this.fallTime;
+          ball.y += speed * sin * this.fallTime + 400 * this.fallTime ** 2;
+        }
         g.fillStyle(0x0d2328, 0.35); g.fillCircle(ball.x + 5, ball.y + 7, 19);
         g.fillStyle(0x8ff1d0); g.fillCircle(ball.x, ball.y, 19);
         g.fillStyle(0xd3fff1); g.fillCircle(ball.x - 6, ball.y - 7, 5);
@@ -46,5 +53,5 @@ export default function Game({ controls, onStats }: { controls: Controls; onStat
       backgroundColor: '#10272d', scene: BalanceScene, scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH } });
     return () => game.destroy(true);
   }, []);
-  return <div className="game" ref={host} role="img" aria-label="Animated ball balancing on a wooden beam. Arrow keys add optional steering." />;
+  return <div className="game" ref={host} role="img" aria-label="Animated ball balancing on a wooden beam. Falling off either end ends the round." />;
 }
