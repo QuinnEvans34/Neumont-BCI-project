@@ -18,3 +18,11 @@
 - Four backend tests passed: spectral discrimination, flat/artifact rejection, calibration behavior, and disconnected/stale source handling. Existing two frontend tests passed; frontend production build and Python compilation passed. The existing Phaser bundle-size warning remains.
 - Physical Cyton/USB connectivity remains untested. Expected board rate is not a measured packet-loss test. EEG quality gates and channel selection require participant validation.
 - Browser verification: connection lab discovered four local BrainFlow recordings, replay calibration reached Ready, and a game round advanced using the replay WebSocket score. The preview was left paused after nine seconds of gameplay.
+
+## Connection status regression fix — October 8, 2026
+
+Previous status could call synthetic generation or an open SDK session connected. Startup now stays disconnected, ports require explicit selection, and live verification requires fresh Cyton samples. Replay and simulation explicitly say no live headset connection. No-sample live acquisition times out after five seconds; stale frames fail closed after two seconds. Disconnect clears calibration even when board cleanup fails.
+
+Fourteen backend tests and two frontend tests passed, plus production build and diff checks. New regression tests cover missing devices, no-sample open sessions and timeout, fresh/stalled live samples, replay versus live verification, explicit simulation and disconnect, failed acquisition cleanup, failed release cleanup, missing-device HTTP errors and calibration rejection without EEG. Hardware states are simulated with mocked SDK input; actual Cyton hardware is still unverified.
+
+Browser checks on this laptop without a headset verified disconnected startup, disabled Connect before selecting a port, explicit simulation labeling, disconnect disabling stream gameplay, and native replay labeling with no claim of live connection.

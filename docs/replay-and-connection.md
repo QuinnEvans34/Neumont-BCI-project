@@ -23,7 +23,7 @@ The 250 Hz value shown is the board’s expected rate. Packet age and sample cou
 6. Disconnect during play. Input must become poor and pause the game. Reconnect/recalibrate and explicitly resume or start anew.
 7. Try more than one recording. Record a short UI video showing **replay** prominently. Do not describe replay as a live brain-control demo.
 
-Replay ends rather than silently looping. The board session may still say open at EOF, but packet age grows and quality becomes poor. Restart the recording via Connect / restart. Calibration errors stop the board session; reconnect to retry, with another recording if necessary.
+Replay ends rather than silently looping. The board session may still say open at EOF, but packet age grows, receiving status becomes stalled, and quality becomes poor. Session open does not prove streaming. Restart the recording via Connect / restart. Calibration errors stop the board session; reconnect to retry, with another recording if necessary.
 
 ## Tomorrow’s short hardware session (15–25 minutes)
 
@@ -55,3 +55,9 @@ No trained model is required for this milestone. Simulation/replay success is no
 - [BrainFlow playback and Cyton API](https://brainflow.readthedocs.io/en/stable/SupportedBoards.html): native playback, Cyton master metadata, EOF behavior and serial selection.
 - [OpenBCI GUI documentation](https://docs.openbci.com/Software/OpenBCISoftware/GUIDocs/): GUI recording formats.
 - [OpenBCI GUI Networking widget](https://docs.openbci.com/Software/OpenBCISoftware/GUIWidgets/): optional later LSL route.
+
+## Connection reliability changes
+
+The backend starts disconnected; the UI starts with live Cyton selected and requires explicit port selection. Replay and synthetic simulation display an explicit no-live-headset message. `session_open` describes SDK ownership, `receiving_samples` describes sample receipt within two seconds, and `live_verified` requires both fresh samples and live Cyton source. `connected` now describes fresh sample receipt, never merely an open session. It does not validate electrode contact.
+
+Opening a live board starts a waiting state. If no samples arrive within five seconds after acquisition starts, the service releases the board and reports an error. A previously working stream becomes stalled after two seconds without new samples. Frames fail closed on stale or disconnected input even between worker ticks. Disconnect clears calibration; calibration requests without incoming samples return HTTP 409.

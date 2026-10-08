@@ -44,7 +44,7 @@ python -m pip install -r backend/requirements.txt
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-Run the frontend in a second terminal. The connection lab lists local BrainFlow recordings and serial ports. Select a recording and Connect / restart, wait for the 60-second valid-data baseline, then select Local backend stream and start a round. Live Cyton uses the same processing path with the USB serial port. Close the OpenBCI GUI board session before connecting directly. The default backend source is explicitly synthetic until you choose replay or live.
+Run the frontend in a second terminal. The connection lab lists local BrainFlow recordings and serial ports. Select a recording and Connect / restart, wait for the 60-second valid-data baseline, then select Local backend stream and start a round. Live Cyton uses the same processing path with the USB serial port. Close the OpenBCI GUI board session before connecting directly. The backend starts disconnected. Choose live Cyton, replay, or explicitly enabled simulation. An open session alone is not a verified connection: fresh samples must arrive. Live sessions without samples time out after five seconds of acquisition.
 
 Recordings default to `~/Documents/OpenBCI_GUI/Recordings`. Set `BCI_RECORDINGS_DIR` to another folder before starting the backend if needed. Raw recordings stay outside Git. Replay stops at the end; reconnect to restart. See [replay and debugging instructions](docs/replay-and-connection.md).
 
