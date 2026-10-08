@@ -1,5 +1,7 @@
 # Integration / showcase brief
 
+**Scope and estimates:** follow the [master blueprint](../blueprint.md) and [current task breakdown](../blueprint/work-breakdown.md). This brief supplies orientation; the numbered task cards control deliverables.
+
 ## Own
 
 Runnable main branch, README setup, CI checks, rehearsal checklist, task coordination, poster/demo video. Never wait until showcase week to integrate.

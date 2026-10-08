@@ -1,5 +1,7 @@
 # Phaser gameplay brief
 
+**Scope and estimates:** follow the [master blueprint](../blueprint.md) and [current task breakdown](../blueprint/work-breakdown.md). This brief supplies orientation; the numbered task cards control deliverables.
+
 ## Own
 
 `Game.tsx` (render/input) and `simulation.ts` (deterministic physics). UI and EEG algorithms remain outside this workstream.

@@ -1,5 +1,7 @@
 # Weekend delivery and ten-week roadmap
 
+**Detailed implementation budgets and updated critical path:** see [master blueprint](blueprint.md) and [task breakdown](blueprint/work-breakdown.md). The detailed plan supersedes the earlier rough milestones below if they differ.
+
 ## This weekend: make next meeting actionable
 
 **Friday / first session:** run this starter, play with assistance extremes, confirm headset model and raw access, assign provisional leads. List any installation failure as a task with the exact error.

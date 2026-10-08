@@ -1,5 +1,7 @@
 # React UI / UX brief
 
+**Scope and estimates:** follow the [master blueprint](../blueprint.md) and [current task breakdown](../blueprint/work-breakdown.md). This brief supplies orientation; the numbered task cards control deliverables.
+
 ## Own
 
 `apps/web/src/App.tsx` and `style.css`. Coordinate Game props and stream state with game/data leads. Phaser renders the scene; React owns accessible controls and text.

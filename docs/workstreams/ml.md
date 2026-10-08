@@ -1,5 +1,7 @@
 # ML / evaluation brief
 
+**Scope and estimates:** follow the [master blueprint](../blueprint.md) and [current task breakdown](../blueprint/work-breakdown.md). This brief supplies orientation; the numbered task cards control deliverables.
+
 ## Question
 
 Can a small model distinguish our instructed task conditions reliably enough to improve the game's input over a simple calibrated-feature baseline?

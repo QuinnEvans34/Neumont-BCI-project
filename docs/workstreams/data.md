@@ -1,5 +1,7 @@
 # EEG / data flow brief
 
+**Scope and estimates:** follow the [master blueprint](../blueprint.md) and [current task breakdown](../blueprint/work-breakdown.md). This brief supplies orientation; the numbered task cards control deliverables.
+
 ## Own
 
 `backend/`, live adapter, buffer, features, calibration, quality assessment, local development recordings. Coordinate InputFrame changes with frontend. The existing server is synthetic-only.

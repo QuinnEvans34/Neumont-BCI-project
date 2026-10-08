@@ -1,5 +1,7 @@
 # Architecture and shared contracts
 
+**Full planned component/lifecycle specification:** [Master blueprint](blueprint.md). This document retains the implemented narrow InputFrame v1 contract. Additive commands/status fields in the blueprint are proposed work, not already implemented.
+
 ## Components
 
 ```text

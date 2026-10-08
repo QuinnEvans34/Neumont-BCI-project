@@ -1,5 +1,7 @@
 # Reusable software and research shortlist
 
+**Detailed source-level research:** [Reuse matrix](blueprint/reuse-matrix.md) identifies exact files, algorithms, decisions and alternatives.
+
 Checked October 8, 2026. These are source/documentation findings, not proof of compatibility with our unidentified headset. Pin and test the chosen releases before the meeting. Keep upstream notices when copying licensed source/assets.
 
 | Project | Reuse | License / decision |

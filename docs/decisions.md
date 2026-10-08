@@ -1,5 +1,7 @@
 # Decisions and open questions
 
+**Implementation and estimates:** [Master blueprint](blueprint.md) is authoritative; remaining core work is 132–220 person-hours before contingency, with optional ML 40–62 hours.
+
 ## Accepted for the starter
 
 - Software game; no physical beam or motors.
