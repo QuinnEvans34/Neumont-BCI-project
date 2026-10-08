@@ -34,3 +34,14 @@ Removed manual score controls and keyboard steering. Three frontend tests pass, 
 ## Synthetic start workflow
 
 A fresh page could start synthetic input, but the selector did not enable the selected input, and initially displayed live Cyton even if simulation was already active. Selecting Synthetic now explicitly enables simulation, the selector initializes from backend status, and synthetic frames are valid immediately without waiting for a worker tick. Live and replay still require explicit connection. Fifteen backend tests, three frontend tests and the production build passed. Browser checks start with disconnected input, select Synthetic without pressing Connect, then start and restart a round.
+
+## Guided calibration and endless game — October 8, 2026
+
+- Native playback of a temporary 1,000-sample file matched all source EEG values and reached explicit EOF. The checked-in integration test repeats full-file verification with a 625-sample fixture and compares the final feature with direct file processing.
+- The local recording ending `13-51-59_2.csv` completed explicit calibration with 30 accepted windows, no rejected windows, baseline interval 747–15,747, median approximately 0.2454 and robust spread approximately 0.0955. Calibration did not consume preview/future data.
+- Browser transition to gameplay preserved the same session ID and continued past 21,000 samples. At 22,969 delivered samples all matched the source; zero mismatches. These are acquisition/processing checks, not evidence of deliberate brain control.
+- Backend suite: 24 tests passed, including native BrainFlow integration. Frontend suite: three tests passed, including survival past 180 seconds with no automatic win, falling from both edges, and stale/invalid input rejection. Production build passed with the existing Phaser bundle-size warning.
+- Remaining hardware check: physical Cyton connection, radio interruption/recovery and electrode quality at the club fair. Automated live-device tests use mocks.
+
+- Full local-file run completed: **84,172 of 84,172 samples matched**, zero mismatches, original source position 336.71 seconds. UI displayed Recording finished and disabled gameplay.
+- Two-viewer browser test: starting a simulated round in one viewer and disconnecting its shared input from the other paused the round at about 0.5 seconds, disabled Resume, and did not create a fall/loss. Simulation also completed the guided flow and bypassed only EEG calibration.

@@ -1,0 +1,432 @@
+import { useState } from "react";
+export type Recording = {
+  name: string;
+  samples: number;
+  channels: number;
+  sample_rate_hz: number;
+  sample_seconds: number;
+  recorded_seconds: number;
+  backwards_timestamps: number;
+  gaps: { sample: number; seconds: number }[];
+  overview?: number[][][];
+};
+export type Telemetry = {
+  session_id: string | null;
+  source: "live" | "replay" | "synthetic";
+  state: string;
+  session_open: boolean;
+  live_verified: boolean;
+  receiving_samples: boolean;
+  sample_rate_hz: number;
+  measured_rate_hz: number | null;
+  samples_received: number;
+  packet_age_ms: number | null;
+  calibrated: boolean;
+  calibrating: boolean;
+  calibration_seconds: number;
+  calibration_error: string | null;
+  accepted_windows: number;
+  rejected_windows: number;
+  last_rejection: string | null;
+  baseline_center: number | null;
+  baseline_scale: number | null;
+  baseline_start_sample: number | null;
+  baseline_end_sample: number | null;
+  relative_alpha: number | null;
+  quality: string;
+  error: string | null;
+  channels: {
+    channel: number;
+    included: boolean;
+    reason: string;
+    std_uv: number | null;
+  }[];
+  waveform: (number | null)[][];
+  waveform_start_sample: number;
+  waveform_stride: number;
+  feature_history: { sample: number; value: number | null }[];
+  recording: Recording | null;
+  recorded_position_seconds: number | null;
+  verified_samples: number;
+  mismatched_samples: number;
+  timestamp_gaps: number;
+  counter_gaps: number;
+  counter_duplicates: number;
+};
+export const duration = (seconds: number) =>
+  `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, "0")}`;
+export function sourceName(source?: string) {
+  return source === "replay"
+    ? "Recorded EEG"
+    : source === "synthetic"
+      ? "Simulation · no headset"
+      : source === "live"
+        ? "Live Cyton"
+        : "No input";
+}
+export function streamMessage(t: Telemetry | null) {
+  if (!t) return "Backend unavailable. Start the Python service to connect.";
+  if (t.error) return t.error;
+  if (t.state === "recording_complete")
+    return "Recording finished. The game is paused; this is not a loss.";
+  if (t.state === "disconnected")
+    return "Disconnected. No signal is streaming.";
+  if (t.state === "stalled")
+    return "Samples stopped arriving. Gameplay is paused until you resume.";
+  if (t.state === "waiting_for_samples")
+    return "Session opened. Waiting for actual samples…";
+  if (t.source === "synthetic")
+    return "Generated simulation input. No headset or EEG calibration is involved.";
+  if (t.source === "replay")
+    return "Reading recorded EEG. No live headset is connected.";
+  return "Cyton samples are arriving. Electrode contact still needs checking.";
+}
+function linePath(
+  values: (number | null)[],
+  low: number,
+  high: number,
+  height = 100,
+) {
+  let down = false;
+  return values
+    .map((v, i) => {
+      if (v === null || !Number.isFinite(v)) {
+        down = false;
+        return "";
+      }
+      const x = (i / Math.max(1, values.length - 1)) * 1000;
+      const y =
+        height -
+        10 -
+        ((Math.max(low, Math.min(high, v)) - low) / (high - low)) *
+          (height - 20);
+      const p = `${down ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
+      down = true;
+      return p;
+    })
+    .join(" ");
+}
+export function Overview({
+  recording,
+  position = 0,
+  baselineStart,
+  baselineEnd,
+  channel = 6,
+}: {
+  recording: Recording;
+  position?: number;
+  baselineStart?: number | null;
+  baselineEnd?: number | null;
+  channel?: number;
+}) {
+  const pairs = recording.overview?.[channel] ?? [];
+  const flat = pairs.flat().sort((a, b) => a - b);
+  const low = flat.length ? flat[Math.floor((flat.length - 1) * 0.01)] : 0;
+  const high = flat.length ? flat[Math.floor((flat.length - 1) * 0.99)] : 1;
+  const width = 1000,
+    x = Math.min(1, position / recording.samples) * width;
+  const envelope = pairs
+    .map(([a, b], i) => {
+      const at = ((i + 0.5) / Math.max(1, pairs.length)) * width;
+      const y = (v: number) =>
+        90 -
+        ((Math.max(low, Math.min(high, v)) - low) /
+          Math.max(1e-9, high - low)) *
+          80;
+      return `M${at.toFixed(1)},${y(a).toFixed(1)}L${at.toFixed(1)},${y(b).toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <div className="recording-overview">
+      <div className="chart-heading">
+        <span>Full recording · CH{channel + 1}</span>
+        <span>
+          {duration(position / recording.sample_rate_hz)} /{" "}
+          {duration(recording.sample_seconds)} of samples
+        </span>
+      </div>
+      <svg
+        preserveAspectRatio="none"
+        viewBox="0 0 1000 110"
+        role="img"
+        aria-label="Full recording envelope with playback position and current analysis window"
+      >
+        <path d={envelope} stroke="#426d70" strokeWidth="2" />
+        {recording.gaps.map((g) => (
+          <line
+            key={g.sample}
+            x1={(g.sample / recording.samples) * width}
+            x2={(g.sample / recording.samples) * width}
+            y1="5"
+            y2="100"
+            stroke="#efb677"
+            strokeDasharray="3 4"
+          />
+        ))}
+        {baselineStart != null && (
+          <rect
+            x={(baselineStart / recording.samples) * width}
+            width={Math.max(
+              0,
+              (((baselineEnd ?? position) - baselineStart) /
+                recording.samples) *
+                width,
+            )}
+            y="5"
+            height="95"
+            fill="#769eeb"
+            opacity=".16"
+          />
+        )}
+        <rect
+          x={Math.max(
+            0,
+            x - ((2 * recording.sample_rate_hz) / recording.samples) * width,
+          )}
+          width={Math.min(
+            x,
+            ((2 * recording.sample_rate_hz) / recording.samples) * width,
+          )}
+          y="5"
+          height="95"
+          fill="#8ff1d0"
+          opacity=".5"
+        />
+        <line x1={x} x2={x} y1="0" y2="105" stroke="#8ff1d0" strokeWidth="2" />
+      </svg>
+      <p className="chart-caption">
+        Mint: playhead / current 2-second window · Blue: baseline interval ·
+        Amber: timestamp gaps. Envelope display clips extreme 1% tails.{" "}
+        {recording.samples.toLocaleString()} samples ·{" "}
+        {duration(recording.recorded_seconds)} recorded timestamp span ·{" "}
+        {recording.gaps.length} gaps over 100ms.
+      </p>
+    </div>
+  );
+}
+export default function SignalPanel({
+  telemetry: t,
+  preview,
+  compact = false,
+}: {
+  telemetry: Telemetry | null;
+  preview: Recording | null;
+  compact?: boolean;
+}) {
+  const [channel, setChannel] = useState(6);
+  const values = t?.waveform[channel] ?? [];
+  const finite = values.filter(
+    (v): v is number => v !== null && Number.isFinite(v),
+  );
+  const center = finite.length
+    ? finite.reduce((a, b) => a + b, 0) / finite.length
+    : 0;
+  // Fixed 500 µV visible range makes large artifacts visibly clip instead of looking normal.
+  const centered = values.map((v) => (v === null ? null : v - center));
+  const clip = finite.some((v) => Math.abs(v - center) > 250);
+  const recorded =
+    preview && t?.recording?.name === preview.name ? preview : null;
+  const history = t?.feature_history ?? [];
+  const feature = history.map((p) => p.value);
+  return (
+    <section className={`signal-panel ${compact ? "compact" : ""}`}>
+      <div className="chart-heading">
+        <div>
+          <p className="eyebrow">SIGNAL MONITOR</p>
+          <h2>
+            {compact ? "Your signal, in play." : "See the signal arrive."}
+          </h2>
+        </div>
+        {t?.source !== "synthetic" && (
+          <label className="channel-select">
+            Channel
+            <select
+              aria-label="Displayed EEG channel"
+              value={channel}
+              onChange={(e) => setChannel(Number(e.target.value))}
+            >
+              {Array.from({ length: 8 }, (_, i) => (
+                <option key={i} value={i}>
+                  CH{i + 1}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <p className="source-banner">{streamMessage(t)}</p>
+      {recorded && (
+        <Overview
+          recording={recorded}
+          position={t?.samples_received}
+          baselineStart={t?.baseline_start_sample}
+          baselineEnd={t?.baseline_end_sample}
+          channel={channel}
+        />
+      )}
+      {t?.source !== "synthetic" && (
+        <>
+          <div className="chart-heading">
+            <span>
+              Recent EEG · CH{channel + 1} · last{" "}
+              {((values.length * 5) / 250).toFixed(1)}s
+            </span>
+            <span>±250 µV · mean removed{clip ? " · clipped" : ""}</span>
+          </div>
+          <svg
+            preserveAspectRatio="none"
+            className="trace"
+            viewBox="0 0 1000 110"
+            role="img"
+            aria-label="Recent incoming EEG waveform"
+          >
+            <line x1="0" x2="1000" y1="50" y2="50" stroke="#28434a" />
+            <path
+              d={linePath(centered, -250, 250)}
+              stroke="#8ff1d0"
+              fill="none"
+              strokeWidth="2"
+            />
+          </svg>
+          <p className="chart-caption">
+            Display shows every fifth sample; analysis uses all samples.{" "}
+            {finite.length ? "" : "Waiting for incoming EEG."}
+          </p>
+        </>
+      )}
+      <div className="chart-heading">
+        <span>
+          {t?.source === "synthetic"
+            ? "Generated assistance"
+            : "Relative alpha · 8–12 Hz / 4–30 Hz"}
+        </span>
+        <span>
+          {t?.relative_alpha?.toFixed(3) ??
+            (t?.source === "synthetic" ? "Demo" : "—")}
+        </span>
+      </div>
+      <svg
+        preserveAspectRatio="none"
+        className="feature-trace"
+        viewBox="0 0 1000 100"
+        role="img"
+        aria-label="Feature history with baseline center and variation"
+      >
+        {t?.baseline_center != null && (
+          <>
+            <rect
+              x="0"
+              y={
+                90 -
+                Math.min(1, t.baseline_center + (t.baseline_scale ?? 0)) * 80
+              }
+              width="1000"
+              height={
+                (Math.min(1, t.baseline_center + (t.baseline_scale ?? 0)) -
+                  Math.max(0, t.baseline_center - (t.baseline_scale ?? 0))) *
+                80
+              }
+              fill="#769eeb"
+              opacity=".18"
+            />
+            <line
+              x1="0"
+              x2="1000"
+              y1={90 - t.baseline_center * 80}
+              y2={90 - t.baseline_center * 80}
+              stroke="#769eeb"
+              strokeDasharray="5 4"
+            />
+          </>
+        )}
+        <path
+          d={linePath(feature, 0, 1)}
+          fill="none"
+          stroke="#d4d995"
+          strokeWidth="2"
+        />
+      </svg>
+      <p className="chart-caption">
+        {t?.source === "synthetic"
+          ? "Generated data for testing."
+          : "Blue band: baseline median ± robust spread. Gaps in the line mean rejected input. Not a stress measurement."}
+      </p>
+      <div className="signal-metrics">
+        <div>
+          <small>DELIVERED</small>
+          <strong>
+            {t?.source === "synthetic"
+              ? "Generated"
+              : (t?.samples_received.toLocaleString() ?? "—")}
+          </strong>
+        </div>
+        <div>
+          <small>MEASURED / EXPECTED</small>
+          <strong>
+            {t?.source === "synthetic"
+              ? "No EEG"
+              : `${t?.measured_rate_hz ?? "—"} / 250 Hz`}
+          </strong>
+        </div>
+        <div>
+          <small>LAST SAMPLES</small>
+          <strong>
+            {t?.packet_age_ms == null ? "—" : `${t.packet_age_ms} ms`}
+          </strong>
+        </div>
+      </div>
+      {!compact && t?.source !== "synthetic" && (
+        <div className="channels">
+          {Array.from({ length: 8 }, (_, i) => {
+            const c = t?.channels[i];
+            return (
+              <div className={c?.included ? "channel good" : "channel"} key={i}>
+                <b>CH{i + 1}</b>
+                <span>{c?.reason ?? "Waiting for samples"}</span>
+                <small>
+                  {c?.std_uv == null ? "" : `${c.std_uv.toFixed(1)} µV SD`}
+                </small>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <details>
+        <summary>Connection & playback evidence</summary>
+        <dl>
+          <dt>Session</dt>
+          <dd>{t?.session_id ?? "Not started"}</dd>
+          <dt>Acquisition</dt>
+          <dd>
+            {t?.session_open ? "SDK session open" : "SDK session closed"} ·{" "}
+            {t?.state ?? "offline"}
+          </dd>
+          <dt>Live samples verified</dt>
+          <dd>
+            {t?.live_verified ? "Yes — contact still needs checking" : "No"}
+          </dd>
+          <dt>Source samples matched</dt>
+          <dd>
+            {t?.verified_samples.toLocaleString() ?? 0} matched ·{" "}
+            {t?.mismatched_samples ?? 0} mismatched
+          </dd>
+          <dt>Original recording position</dt>
+          <dd>
+            {t?.recorded_position_seconds == null
+              ? "—"
+              : `${t.recorded_position_seconds.toFixed(2)}s`}
+          </dd>
+          <dt>Timestamp gaps encountered</dt>
+          <dd>{t?.timestamp_gaps ?? 0}</dd>
+          <dt>Cyton counter estimates (live only)</dt>
+          <dd>
+            {t?.counter_gaps ?? 0} skipped · {t?.counter_duplicates ?? 0}{" "}
+            duplicate (counter resets can affect estimates)
+          </dd>
+        </dl>
+      </details>
+    </section>
+  );
+}

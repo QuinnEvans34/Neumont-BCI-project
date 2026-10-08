@@ -1,69 +1,58 @@
-# Recorded EEG weekend and live connection check
+# Guided session and tomorrow's hardware test
 
-## What exists now
+## Start and inspect
 
-The local OpenBCI GUI recording folders contain Cyton eight-channel, 250 Hz sessions. The accompanying `BrainFlow-RAW*.csv` files can be played through BrainFlow without converting the GUI text export. These files are local inputs, not repository assets.
+Start Vite and the Python backend using README commands. Open http://127.0.0.1:5173.
 
-- **React connection lab:** source/file/serial selection; connect, disconnect, restart and recalibrate; sample count, packet age, baseline progress, channel standard deviation and errors.
-- **BrainFlow acquisition:** replay uses `PLAYBACK_FILE_BOARD` with Cyton as master board; live uses `CYTON_BOARD` and the selected USB serial port. One backend owns the board and broadcasts one shared stream. UI reconnects do not restart acquisition.
-- **Statistical processing:** rolling 500-sample windows; mean subtraction and Hann-window FFT; relative alpha = 8–<12 Hz power / 4–30 Hz power; median across channels passing the prototype gates. No trained ML model.
-- **Calibration:** 30 separate valid windows of about two seconds; median and MAD baseline. Minimum scale 0.0001 rejects effectively flat baselines. Invalid windows extend calibration. Score = clip(0.5 + (feature − median)/(6 × 1.4826 × MAD), 0, 1); EMA uses 0.8 previous + 0.2 new. Larger relative alpha increases assistance by convention, not a validated calmness mapping.
-- **Quality prototype:** finite samples, standard deviation >0.5 µV and peak-to-peak <500 µV on at least one channel; fewer than 500 samples or no passing channels means poor. These thresholds need hardware validation. They can miss artifacts; one surviving channel may not be useful EEG.
-- **Game:** score affects disturbances in automated balancing. It does not infer left/right intentions. Missing samples for two seconds pauses stream gameplay. Source changes made through the panel pause the round and require Resume/start.
+1. **Connect:** choose Live headset, Recorded session, or Simulation. The source card alone does not change the running input; press its explicitly named start/connect button.
+2. For recordings, inspect the full-file envelope, sample count, channel count, sample duration and original timestamp span before starting. The locally available file ending `13-51-59_2.csv` is the initial selection when present; it has 84,172 samples and no original timestamp gaps over 100 ms in the October 8 inspection. Other files remain selectable.
+3. **Calibrate:** playback/live acquisition starts immediately, but baseline collection waits for **Begin baseline**. Choose a displayed channel (CH7 initially); the display choice does not change the analysis channels. Inspect which channels pass the provisional gates.
+4. Click **Begin baseline** and watch accepted time grow to 60 seconds. Progress uses 30 distinct 500-sample windows after the click. Rejected windows extend the wait. A window crossing a source timestamp gap over 100 ms or a backwards timestamp is rejected.
+5. Click **Start balancing** when the baseline is ready and input is usable. The acquisition session, playback position and baseline remain unchanged. Switching screens never reopens the board.
+6. Play until the ball falls. There is no 60-second win. The round eases in over five seconds and assistance is smoothed over roughly 0.8 seconds. Time survived counts upward; time in center is accumulated separately.
+7. Missing, rejected or stale input pauses play. **Resume** is explicit after recovery. EOF displays **Recording finished**, pauses the game, and is not a loss. Restarting playback creates a new session and needs a new EEG baseline.
 
-The 250 Hz value shown is the board’s expected rate. Packet age and sample count diagnose delivery, not RF packet-loss percentage or measured sampling rate. Channel deviation is not electrode impedance. The first iteration pools passing channels; selecting verified O1/O2 channels and comparing features is a next task.
+Simulation generates an assistance signal, has no EEG waveforms, bypasses calibration and never verifies live hardware. Start simulation → Start balancing exercises the same game flow without claiming physiological input.
 
-## Weekend recipe
+## What the plots mean
 
-1. Start both servers using README commands.
-2. In Connection lab choose Recorded Cyton EEG, select a BrainFlow file, and Connect / restart.
-3. Check that received samples increase and packet age stays low. Initial quality is poor until two seconds of samples arrive.
-4. Wait for baseline Ready. Progress counts valid EEG windows, so a noisy recording can take longer than one minute.
-5. Start a round and inspect the changing assistance percentage.
-6. Disconnect during play. Input must become poor and pause the game. Reconnect/recalibrate and explicitly resume or start anew.
-7. Try more than one recording. Record a short UI video showing **replay** prominently. Do not describe replay as a live brain-control demo.
+- **Full recording:** per-channel minimum/maximum envelope over up to 500 bins. For visibility, the chart clips the extreme 1% tails of envelope values; the stored EEG and analysis remain unmodified. Mint marks the current sample position and latest two-second analysis region; blue marks the baseline interval; amber marks original timestamp gaps.
+- **Recording time:** progress is consumed sample index / total samples, converted at 250 Hz. The original timestamp span and current original timestamp offset appear separately. A sample clock is not a wall-clock stopwatch; recordings with gaps can have different durations.
+- **Recent EEG:** last ten seconds of received samples. Display removes the selected channel's mean, shows every fifth sample and uses a ±250 µV range. It labels clipping; analysis uses all samples.
+- **Feature:** relative-alpha history, with gaps for invalid windows and baseline median ± robust spread once calibrated. The recent history is bounded to 240 feature updates.
+- **Channel gates:** finite samples, standard deviation above 0.5 µV, and peak-to-peak range below 500 µV. A valid feature needs at least one included channel. These provisional gates can miss artifacts and do not measure impedance. Changing the display channel does not select electrodes for analysis.
+- **Assistance:** median relative alpha across passing channels, normalized against baseline median and MAD. Larger relative alpha means more assistance by convention; this is not a validated stress detector. The game shows applied assistance, including its settling period and smoothing.
 
-Replay ends rather than silently looping. The board session may still say open at EOF, but packet age grows, receiving status becomes stalled, and quality becomes poor. Session open does not prove streaming. Restart the recording via Connect / restart. Calibration errors stop the board session; reconnect to retry, with another recording if necessary.
+## Evidence of correct playback
 
-## Tomorrow’s short hardware session (15–25 minutes)
+BrainFlow's native Playback File Board owns pacing and sample delivery. The service independently reads the local file for preview and verification. It compares every arriving sample's eight EEG values with the corresponding source row, at absolute tolerance 0.00001 µV. The preview never feeds future samples into calibration.
 
-1. Use the existing OpenBCI GUI to establish a known-working live stream. Note the dongle serial port, sample rate, actual channel-to-electrode wiring and board configuration. Save a short recording as a fallback.
-2. Stop and close its board session. Two programs cannot directly own the same serial connection. Keep the GUI installed as the diagnostic reference.
-3. Start our two servers, refresh ports, select Live Cyton and the same serial port. On Mac choose `/dev/cu…`, following BrainFlow documentation.
-4. Connect and confirm samples arrive. If not, copy the error and check board power, radio/dongle, port and whether the GUI still owns the session. Do not spend the entire fair debugging; confirm the original GUI still works and keep the recording.
-5. Sit relatively still for the baseline; confirm Ready and try a game round. This verifies acquisition and mapping, not intentional mental control.
-6. Disconnect/reconnect once, then verify the GUI can reconnect after our board is released. Record the result and configuration in a local note; no raw EEG in Git.
+Open **Connection & playback evidence** to inspect session ID, matched/mismatched sample counts, original recording time and timestamp gaps. A mismatch halts acquisition. BrainFlow's regenerated playback timestamp is intentionally excluded from numerical comparison; source timestamps remain available for alignment and gap detection. EOF is established by consuming the known full sample count, not by guessing from elapsed time.
 
-If direct connection fails but the GUI works, the next fallback is GUI Networking → LSL → Python. That adapter is **not implemented** yet; adding it now would give us two acquisition routes to debug. Finish the direct Cyton check first.
+Tests cover arbitrary packet boundaries, exact calibration sample intervals and direct feature equality, no implicit baseline, rejected windows, timestamp gaps, preserved session position, mismatch detection and exact EOF. A native SDK integration test creates a short temporary file, plays the whole file, checks every EEG sample and the final feature, and confirms EOF makes input unusable. Raw participant recordings remain outside Git.
 
-## Focused weekend tracks / estimates
+## Tomorrow's 15–25-minute live check
 
-These are person-hours, assuming the current prototype and recorded data:
+1. Establish a known-working stream in OpenBCI GUI. Note actual serial port, board configuration and channel-to-electrode wiring. Save a short fallback recording.
+2. Close its board session so our backend can own the port. Keep the GUI available as a reference.
+3. Select **Live headset**, refresh ports, choose the USB dongle (Mac `/dev/cu…`), and **Connect & inspect**. The service starts waiting; only fresh samples verify delivery. No samples after five seconds of acquisition causes a visible error and cleanup.
+4. Confirm the sample count increases, recent EEG changes, packet age stays low and measured delivery rate settles near expected 250 Hz. The rate uses samples received over the last five wall-clock seconds, so short-term variations are normal. It is not a hardware clock measurement.
+5. Check channel gates and physical electrode placement. A passing amplitude gate alone does not prove useful EEG. OpenBCI GUI remains the electrode/contact reference.
+6. Begin baseline, verify progress and channel reasons, then start the game. Open evidence before and after: the same session ID and increasing sample index must persist.
+7. Test a stream interruption while playing. The game must pause within the two-second freshness limit without manufacturing a loss. Recover samples and explicitly Resume; a new connection creates a new session and requires calibration.
+8. Disconnect in our app, then verify OpenBCI GUI can reconnect. Note actual failure messages and working settings locally.
 
-| Track | Task | Estimate | Done when |
-|---|---|---:|---|
-| Data / you | Run several recordings, select verified electrodes, inspect artifacts, compare relative alpha to other candidate features | 3–5 h | Reproducible replay calibration and a documented channel choice |
-| UI / Porter | Improve diagnostics layout, calibration instructions and distinct source/status states | 3–5 h | A teammate can connect and diagnose a missing backend without help |
-| Game | Tune assistance and difficulty across EEG recordings | 2–4 h | Replay visibly changes assistance; fair scoring remains understandable |
-| Integration | Add source-session IDs, explicit stale recovery, recorded-session tests and a demo checklist | 3–5 h | Switching inputs never mixes rounds or old calibration |
-| Hardware | Tomorrow’s smoke test; next week’s proper participant setup | 0.5 h tomorrow + 1–2 h later | Live samples, baseline, game and clean reconnect verified |
+Additional no-hardware checks: no port must not connect; a non-Cyton/open-but-silent session must not be reported as streaming; simulated/replayed data must never claim live hardware. Automated versions use SDK mocks; the physical board must still be tested.
 
-No trained model is required for this milestone. Simulation/replay success is not a promise that physiological control will work next week. The remaining uncertainty is much smaller if tomorrow confirms the serial acquisition route.
+Cyton sample-counter continuity is shown as an estimate: modulo-256 wrap is normal, gaps suggest missing samples, but resets and long interruptions can make loss estimates ambiguous. Timestamp gaps and per-channel gates are separate evidence.
+
+## Implementation notes
+
+A single backend producer owns the board. All viewers share its acquisition and controls; this remains a local club demo, not a multi-user service. One WebSocket carries the score and the accompanying telemetry. Browser freshness is based on receipt time; raw EEG freshness comes from sample arrival. Changing input invalidates the previous baseline. An already running round cannot resume against a different session ID.
+
+The full-file preview endpoint accepts only BrainFlow recording paths within `BCI_RECORDINGS_DIR`. A two-entry cache avoids parsing large files on every telemetry update. The service keeps ten seconds of waveforms, recent features, and its active source file for verification. Recording new live sessions and LSL acquisition are future work.
 
 ## References
 
-- [BrainFlow playback and Cyton API](https://brainflow.readthedocs.io/en/stable/SupportedBoards.html): native playback, Cyton master metadata, EOF behavior and serial selection.
-- [OpenBCI GUI documentation](https://docs.openbci.com/Software/OpenBCISoftware/GUIDocs/): GUI recording formats.
-- [OpenBCI GUI Networking widget](https://docs.openbci.com/Software/OpenBCISoftware/GUIWidgets/): optional later LSL route.
-
-## Connection reliability changes
-
-The backend starts disconnected; the UI initializes its selector from the backend source and requires explicit port selection. Replay and synthetic simulation display an explicit no-live-headset message. `session_open` describes SDK ownership, `receiving_samples` describes sample receipt within two seconds, and `live_verified` requires both fresh samples and live Cyton source. `connected` now describes fresh sample receipt, never merely an open session. It does not validate electrode contact.
-
-Opening a live board starts a waiting state. If no samples arrive within five seconds after acquisition starts, the service releases the board and reports an error. A previously working stream becomes stalled after two seconds without new samples. Frames fail closed on stale or disconnected input even between worker ticks. Disconnect clears calibration; calibration requests without incoming samples return HTTP 409.
-
-## Game control update
-
-The session panel no longer has manual mode, a score slider or keyboard steering. Input comes automatically from the Connection Lab. Low assistance reduces stabilizing feedback and increases disturbances; high assistance strengthens feedback and reduces disturbances. Crossing either beam end causes a fall animation and ends the round immediately. Scoring and the round timer freeze at loss; Play again resets the ball. Synthetic development input remains explicitly labeled in the Connection Lab.
-
-Selecting Synthetic explicitly starts simulation without an additional Connect click; Restart simulation enables it again after Disconnect. This bypasses EEG calibration only for labeled synthetic frames.
+- [BrainFlow playback and Cyton API](https://brainflow.readthedocs.io/en/stable/SupportedBoards.html)
+- [OpenBCI GUI documentation](https://docs.openbci.com/Software/OpenBCISoftware/GUIDocs/)

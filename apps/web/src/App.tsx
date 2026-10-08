@@ -1,45 +1,605 @@
-import { useEffect, useState } from 'react';
-import Game from './Game';
-import Diagnostics from './Diagnostics';
-import { initialState, ROUND_SECONDS } from './simulation';
-import { parseFrame, isUsable, type InputFrame } from './input';
+import { useEffect, useRef, useState } from "react";
+import Game from "./Game";
+import SignalPanel, {
+  Overview,
+  duration,
+  sourceName,
+  streamMessage,
+  type Recording,
+  type Telemetry,
+} from "./SignalPanel";
+import { initialState } from "./simulation";
+import { parseFrame, isUsable, type InputFrame } from "./input";
+const API = "http://127.0.0.1:8000";
+type Page = "setup" | "calibrate" | "play";
+type Options = {
+  recordings: string[];
+  ports: { device: string; description: string }[];
+};
 export default function App() {
-  const [running, setRunning] = useState(false);
-  const [reset, setReset] = useState(0); const [stats, setStats] = useState(initialState);
+  const [page, setPage] = useState<Page>("setup");
+  const [source, setSource] = useState("replay");
+  const [recording, setRecording] = useState("");
+  const [port, setPort] = useState("");
+  const [options, setOptions] = useState<Options>({
+    recordings: [],
+    ports: [],
+  });
+  const [preview, setPreview] = useState<Recording | null>(null);
   const [frame, setFrame] = useState<InputFrame | null>(null);
-  const [receivedAt, setReceivedAt] = useState(0); const [now, setNow] = useState(performance.now());
+  const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
   const [connected, setConnected] = useState(false);
-  useEffect(() => { const timer = setInterval(() => setNow(performance.now()), 200); return () => clearInterval(timer); }, []);
+  const [receivedAt, setReceivedAt] = useState(0);
+  const [now, setNow] = useState(performance.now());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [running, setRunning] = useState(false);
+  const [hasRound, setHasRound] = useState(false);
+  const [roundSession, setRoundSession] = useState<string | null>(null);
+  const [reset, setReset] = useState(0);
+  const [stats, setStats] = useState(initialState);
+  const initialized = useRef(false);
+  async function refresh() {
+    try {
+      const r = await fetch(`${API}/api/options`);
+      if (!r.ok) throw Error("Cannot list inputs");
+      const o: Options = await r.json();
+      setOptions(o);
+      setRecording((v) =>
+        o.recordings.includes(v)
+          ? v
+          : (o.recordings.find((p) => p.endsWith("_2.csv")) ??
+            o.recordings[0] ??
+            ""),
+      );
+      setPort((v) => (o.ports.some((p) => p.device === v) ? v : ""));
+      setError("");
+    } catch (e) {
+      setError(String(e));
+    }
+  }
   useEffect(() => {
-    let disposed = false; let retry: ReturnType<typeof setTimeout>; let socket: WebSocket;
+    void refresh();
+    const timer = setInterval(() => setNow(performance.now()), 200);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    if (!recording) {
+      setPreview(null);
+      return;
+    }
+    const controller = new AbortController();
+    setPreview(null);
+    fetch(`${API}/api/recording?name=${encodeURIComponent(recording)}`, {
+      signal: controller.signal,
+    })
+      .then(async (r) => {
+        if (!r.ok) throw Error("Unable to inspect recording");
+        return r.json();
+      })
+      .then(setPreview)
+      .catch((e) => {
+        if (e.name !== "AbortError") setError(String(e));
+      });
+    return () => controller.abort();
+  }, [recording]);
+  useEffect(() => {
+    let disposed = false;
+    let retry: ReturnType<typeof setTimeout>;
+    let socket: WebSocket;
     const connect = () => {
-      socket = new WebSocket('ws://127.0.0.1:8000/ws/input'); let lastSequence = -1;
-      socket.onopen = () => setConnected(true);
-      socket.onmessage = (event) => {
-        try { const next = parseFrame(JSON.parse(event.data));
-          if (next && next.sequence > lastSequence) { lastSequence = next.sequence; setFrame(next); setReceivedAt(performance.now()); }
-        } catch { /* Ignore malformed packets; freshness handling pauses gameplay. */ }
+      socket = new WebSocket("ws://127.0.0.1:8000/ws/input");
+      let sequence = -1;
+      socket.onopen = () => {
+        if (!disposed) setConnected(true);
       };
-      socket.onclose = () => { setConnected(false); setFrame(null); if (!disposed) retry = setTimeout(connect, 1500); };
+      socket.onmessage = (e) => {
+        if (disposed) return;
+        try {
+          const raw = JSON.parse(e.data);
+          const next = parseFrame(raw);
+          if (next && next.sequence > sequence) {
+            sequence = next.sequence;
+            setFrame(next);
+            setReceivedAt(performance.now());
+            if (raw.telemetry) {
+              const t: Telemetry = raw.telemetry;
+              setTelemetry(t);
+              if (!initialized.current && t.session_id) {
+                initialized.current = true;
+                setSource(t.source);
+              }
+            }
+          }
+        } catch {
+          /* Invalid packets cannot make gameplay ready. */
+        }
+      };
+      socket.onclose = () => {
+        if (disposed) return;
+        setConnected(false);
+        setFrame(null);
+        setRunning(false);
+        retry = setTimeout(connect, 1500);
+      };
       socket.onerror = () => socket.close();
     };
-    connect(); return () => { disposed = true; clearTimeout(retry); socket.close(); setConnected(false); setFrame(null); };
+    connect();
+    return () => {
+      disposed = true;
+      clearTimeout(retry);
+      socket.close();
+    };
   }, []);
+  useEffect(() => {
+    if (telemetry?.recording)
+      setRecording(
+        (v) =>
+          options.recordings.find((p) =>
+            p.endsWith("/" + telemetry.recording!.name),
+          ) ?? v,
+      );
+  }, [telemetry?.session_id, options.recordings]);
+  const fresh = connected && now - receivedAt <= 2000;
+  const t = fresh ? telemetry : null;
   const usable = connected && isUsable(frame, receivedAt, now);
-  const input = frame?.score ?? 0;
-  const label = !connected ? 'Backend disconnected' : `${frame?.source ?? 'Waiting for'} input · ${usable ? 'ready' : 'paused'}`;
-  const restart = () => { setReset(v => v + 1); setRunning(true); };
-  return <main>
-    <header><a className="brand" href="#">AI & DATA CLUB <span>/ LAB 01</span></a><span className="tag">WEEKEND PROTOTYPE</span></header>
-    <section className="intro"><p className="eyebrow">BRAIN BALANCE</p><h1>Find your balance.</h1><p>A brain-responsive game in the making. Keep the ball in the mint zone for a 60-second round.</p></section>
-    <div className="layout"><section className="stage"><div className="stage-top"><span className="status">{label}</span><span>01 / BALL & BEAM</span></div>
-      <Game controls={{ running: running && usable, score: input, reset }} onStats={setStats} />
-      <div className="metrics"><div><small>TIME REMAINING</small><strong>{Math.ceil(Math.max(0, ROUND_SECONDS - stats.elapsed))}s</strong></div><div><small>TIME IN ZONE</small><strong>{stats.centered.toFixed(1)}s</strong></div><div><small>ASSISTANCE INPUT</small><strong>{usable ? Math.round(input * 100) + '%' : '—'}</strong></div></div>
-    </section><aside><p className="eyebrow">YOUR SESSION</p><h2>{stats.fell ? 'The ball fell off.' : stats.done ? 'Round complete.' : running && usable ? 'Keep it balanced.' : 'Ready to balance?'}</h2><p>Your signal changes balancing assistance. Keep the ball on the beam for 60 seconds; if it falls off, the round ends.</p>
-      {!usable && <p className="notice">Connect an input in the Connection Lab below. EEG play requires a completed calibration and fresh valid samples.</p>}
-      <button onClick={restart} disabled={!usable}>{stats.done ? 'Play again' : 'Start new round'} →</button><button className="secondary" disabled={stats.done || !usable} onClick={() => setRunning(v => !v)}>{running ? 'Pause' : 'Resume'}</button>
-      {stats.fell && <p role="status" className="notice">Round ended after {stats.elapsed.toFixed(1)} seconds. Try again to stay on longer.</p>}
-      {running && !usable && <p role="status" className="notice">Round paused until fresh, calibrated, good-quality input returns.</p>}
-    </aside></div><Diagnostics onChange={() => { setRunning(false); setFrame(null); }} /><footer>Experimental neurofeedback gameplay. This prototype does not measure calmness or read thoughts.</footer>
-  </main>;
+  const sameSession = roundSession === t?.session_id;
+  useEffect(() => {
+    if (!usable || !sameSession) setRunning(false);
+  }, [usable, sameSession]);
+  async function command(action: string) {
+    setBusy(true);
+    setError("");
+    setRunning(false);
+    try {
+      const r = await fetch(`${API}/api/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        ...(action === "connect"
+          ? { body: JSON.stringify({ source, recording, serial_port: port }) }
+          : {}),
+      });
+      const result = await r.json();
+      if (!r.ok) throw Error(result.detail ?? "Command failed");
+      setTelemetry(result);
+      if (action === "connect") {
+        setFrame(null);
+        setHasRound(false);
+        setRoundSession(null);
+        setReset((v) => v + 1);
+        setPage("calibrate");
+        window.scrollTo(0, 0);
+      }
+      if (action === "calibrate") {
+        setFrame(null);
+        setHasRound(false);
+        setRoundSession(null);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  function start() {
+    if (!usable || !t?.session_id) return;
+    setRoundSession(t.session_id);
+    setReset((v) => v + 1);
+    setHasRound(true);
+    setRunning(true);
+    setPage("play");
+    window.scrollTo(0, 0);
+  }
+  function navigate(next: Page) {
+    setRunning(false);
+    setPage(next);
+    setError("");
+    window.scrollTo(0, 0);
+  }
+  const readiness =
+    source === "synthetic" ||
+    (source === "live" ? Boolean(port) : Boolean(recording && preview));
+  return (
+    <main>
+      <header>
+        <a
+          className="brand"
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("setup");
+          }}
+        >
+          AI & DATA CLUB <span>/ BRAIN BALANCE</span>
+        </a>
+        <span className={`source-pill ${fresh ? "online" : ""}`}>
+          {fresh
+            ? t?.state === "disconnected"
+              ? "No input connected"
+              : sourceName(t?.source)
+            : "Backend offline"}
+        </span>
+      </header>
+      <nav className="steps" aria-label="Session steps">
+        {(["setup", "calibrate", "play"] as Page[]).map((p, i) => (
+          <button
+            key={p}
+            className={page === p ? "selected" : ""}
+            onClick={() => navigate(p)}
+            disabled={p !== "setup" && !t?.session_id}
+          >
+            <span>0{i + 1}</span>
+            {p === "setup"
+              ? "Connect"
+              : p === "calibrate"
+                ? "Calibrate"
+                : "Balance"}
+          </button>
+        ))}
+      </nav>
+      {error && (
+        <p role="alert" className="notice error">
+          {error}
+        </p>
+      )}
+      {page === "setup" && (
+        <>
+          <section className="intro">
+            <p className="eyebrow">01 / CONNECT</p>
+            <h1>Start with a signal.</h1>
+            <p>
+              Choose where your signal comes from. Inspect it, build a baseline,
+              then bring the same stream into the game.
+            </p>
+          </section>
+          <div className="source-cards">
+            {[
+              {
+                id: "live",
+                title: "Live headset",
+                text: "Connect to Cyton through its USB radio dongle.",
+              },
+              {
+                id: "replay",
+                title: "Recorded session",
+                text: "Watch your actual EEG recording move through the pipeline.",
+              },
+              {
+                id: "synthetic",
+                title: "Simulation",
+                text: "Generated input for testing. No headset or baseline required.",
+              },
+            ].map((o) => (
+              <button
+                aria-pressed={source === o.id}
+                className={`source-card ${source === o.id ? "chosen" : ""}`}
+                key={o.id}
+                disabled={busy}
+                onClick={() => {
+                  setSource(o.id);
+                  setError("");
+                }}
+              >
+                <small>
+                  {o.id === "live"
+                    ? "HARDWARE"
+                    : o.id === "replay"
+                      ? "LOCAL FILE"
+                      : "DEMO"}
+                </small>
+                <h2>{o.title}</h2>
+                <p>{o.text}</p>
+              </button>
+            ))}
+          </div>
+          <section className="panel">
+            <div className="chart-heading">
+              <h2>
+                {source === "replay"
+                  ? "Choose a recording"
+                  : source === "live"
+                    ? "Connect your Cyton"
+                    : "Try the flow"}
+              </h2>
+              <button
+                className="secondary small-button"
+                disabled={busy}
+                onClick={() => void refresh()}
+              >
+                Refresh inputs
+              </button>
+            </div>
+            {source === "live" && (
+              <>
+                <label htmlFor="port">Cyton dongle port</label>
+                <select
+                  id="port"
+                  value={port}
+                  onChange={(e) => setPort(e.target.value)}
+                >
+                  <option value="">
+                    Select the USB dongle · /dev/cu… on Mac
+                  </option>
+                  {options.ports.map((p) => (
+                    <option value={p.device} key={p.device}>
+                      {p.device} · {p.description}
+                    </option>
+                  ))}
+                </select>
+                <p>
+                  First confirm the headset works in OpenBCI GUI, then close its
+                  board session before connecting here. An open serial session
+                  is not proof of incoming EEG.
+                </p>
+              </>
+            )}
+            {source === "replay" && (
+              <>
+                <label htmlFor="recording">Local BrainFlow recording</label>
+                <select
+                  id="recording"
+                  value={recording}
+                  onChange={(e) => setRecording(e.target.value)}
+                >
+                  {options.recordings.map((p) => (
+                    <option value={p} key={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+                {preview ? (
+                  <>
+                    <p>
+                      {preview.channels} channels · {preview.sample_rate_hz} Hz
+                      · {preview.name}
+                    </p>
+                    <Overview recording={preview} />
+                    {preview.backwards_timestamps > 0 && (
+                      <p className="notice">
+                        This recording contains backwards timestamps.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p>Waiting for a recording preview…</p>
+                )}
+              </>
+            )}
+            {source === "synthetic" && (
+              <p>
+                Simulation generates a changing assistance value. It is
+                explicitly labeled throughout the app and never verifies a
+                headset connection.
+              </p>
+            )}
+            <div className="actions">
+              <button
+                disabled={busy || !readiness}
+                onClick={() => void command("connect")}
+              >
+                {busy
+                  ? "Opening input…"
+                  : source === "synthetic"
+                    ? "Start simulation"
+                    : source === "replay"
+                      ? "Start playback & inspect"
+                      : "Connect & inspect"}
+              </button>
+              {t?.session_id && (
+                <button
+                  className="secondary"
+                  onClick={() => navigate("calibrate")}
+                >
+                  Return to current session
+                </button>
+              )}
+            </div>
+          </section>
+        </>
+      )}
+      {page === "calibrate" && (
+        <>
+          <section className="intro">
+            <p className="eyebrow">02 / CALIBRATE</p>
+            <h1>
+              {t?.source === "synthetic"
+                ? "Explore the demo."
+                : t?.calibrated
+                  ? "Your baseline is ready."
+                  : "Find your starting point."}
+            </h1>
+            <p>
+              {t?.source === "synthetic"
+                ? "This input is generated. You can go straight to the game."
+                : "Sit comfortably and inspect the signal below. Begin when you are ready; we collect 60 seconds of accepted EEG windows."}
+            </p>
+          </section>
+          <div className="calibration-layout">
+            <SignalPanel telemetry={t} preview={preview} />
+            <aside className="baseline">
+              <p className="eyebrow">YOUR BASELINE</p>
+              <h2>
+                {t?.source === "synthetic"
+                  ? "Bypassed for demo"
+                  : t?.calibrated
+                    ? "Ready to balance"
+                    : t?.calibrating
+                      ? "Collecting baseline…"
+                      : "Ready when you are"}
+              </h2>
+              {t?.source !== "synthetic" && (
+                <>
+                  <strong className="baseline-number">
+                    {t?.calibration_seconds ?? 0}
+                    <span> / 60s</span>
+                  </strong>
+                  <progress
+                    aria-label="Valid baseline seconds"
+                    max={60}
+                    value={t?.calibration_seconds ?? 0}
+                  />
+                  <p>
+                    Valid signal time, not a countdown. Rejected windows extend
+                    calibration.
+                  </p>
+                  <div className="counts">
+                    <span>
+                      <b>{t?.accepted_windows ?? 0}</b> accepted
+                    </span>
+                    <span>
+                      <b>{t?.rejected_windows ?? 0}</b> rejected
+                    </span>
+                  </div>
+                  {t?.last_rejection && (
+                    <p className="notice">
+                      Last rejected window: {t.last_rejection}
+                    </p>
+                  )}
+                  {t?.calibrated && (
+                    <dl>
+                      <dt>Typical relative alpha</dt>
+                      <dd>{t.baseline_center?.toFixed(4)}</dd>
+                      <dt>Robust variation</dt>
+                      <dd>{t.baseline_scale?.toFixed(4)}</dd>
+                      <dt>Baseline sample interval</dt>
+                      <dd>
+                        {t.baseline_start_sample?.toLocaleString()} →{" "}
+                        {t.baseline_end_sample?.toLocaleString()}
+                      </dd>
+                    </dl>
+                  )}
+                  <button
+                    className="secondary"
+                    disabled={busy || !t?.receiving_samples || t?.calibrating}
+                    onClick={() => void command("calibrate")}
+                  >
+                    {t?.calibrated || t?.calibration_error
+                      ? "Recalibrate"
+                      : "Begin baseline"}
+                  </button>
+                </>
+              )}
+              {t?.calibration_error && (
+                <p role="alert" className="notice">
+                  {t.calibration_error}
+                </p>
+              )}
+              <button disabled={busy || !usable} onClick={start}>
+                Start balancing →
+              </button>
+              <p className="hint">
+                Your stream keeps running. Starting the game preserves the
+                session, sample position, and baseline.
+              </p>
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => void command("disconnect")}
+              >
+                Disconnect
+              </button>
+            </aside>
+          </div>
+        </>
+      )}
+      <div hidden={page !== "play"}>
+        <section className="intro">
+          <p className="eyebrow">03 / BALANCE</p>
+          <h1>
+            {stats.fell ? "Find your balance again." : "Stay in the moment."}
+          </h1>
+          <p>
+            No countdown, no finish line. Keep the ball on the beam for as long
+            as you can.
+          </p>
+        </section>
+        <div className="layout">
+          <section className="stage">
+            <div className="stage-top">
+              <span className="status">
+                {sourceName(t?.source)} ·{" "}
+                {running && usable ? "playing" : "paused"}
+              </span>
+              <span>ENDLESS BALANCE</span>
+            </div>
+            <Game
+              controls={{
+                running: running && usable && sameSession && page === "play",
+                score: frame?.score ?? 0.5,
+                reset,
+              }}
+              onStats={setStats}
+            />
+            <div className="metrics">
+              <div>
+                <small>TIME SURVIVED</small>
+                <strong>{duration(stats.elapsed)}</strong>
+              </div>
+              <div>
+                <small>TIME IN CENTER</small>
+                <strong>{stats.centered.toFixed(1)}s</strong>
+              </div>
+              <div>
+                <small>BALANCE ASSISTANCE</small>
+                <strong>
+                  {usable ? `${Math.round(stats.assistance * 100)}%` : "—"}
+                </strong>
+              </div>
+            </div>
+          </section>
+          <aside>
+            <p className="eyebrow">YOUR ROUND</p>
+            <h2>
+              {stats.fell
+                ? "The ball fell off."
+                : !usable
+                  ? "Signal paused."
+                  : running
+                    ? "Keep it balanced."
+                    : "Ready to continue?"}
+            </h2>
+            <p>
+              {stats.fell
+                ? `You stayed on for ${stats.elapsed.toFixed(1)} seconds. Try again with the same baseline.`
+                : !usable
+                  ? streamMessage(t)
+                  : "Your signal changes assistance. Each round eases in over five seconds."}
+            </p>
+            {hasRound && !sameSession && (
+              <p className="notice">
+                The input session changed. Start a new round with its baseline.
+              </p>
+            )}
+            <button disabled={!usable || busy} onClick={start}>
+              {stats.fell
+                ? "Play again"
+                : hasRound
+                  ? "Start new round"
+                  : "Start balancing"}{" "}
+              →
+            </button>
+            <button
+              className="secondary"
+              disabled={!hasRound || stats.done || !usable || !sameSession}
+              onClick={() => setRunning((v) => !v)}
+            >
+              {running ? "Pause" : "Resume"}
+            </button>
+            <button className="secondary" onClick={() => navigate("calibrate")}>
+              Inspect baseline & signal
+            </button>
+            <p className="hint">
+              Missing or rejected data pauses play. Resume when the signal
+              returns. A recording ending is not a loss.
+            </p>
+          </aside>
+        </div>
+        <SignalPanel telemetry={t} preview={preview} compact />
+      </div>
+      <footer>
+        Experimental signal-driven gameplay. Relative alpha and balance
+        assistance are not validated measurements of stress.
+      </footer>
+    </main>
+  );
 }

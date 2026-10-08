@@ -1,5 +1,8 @@
 # Neumont BCI: complete build blueprint
 
+**Implementation update (October 8):** The guided Connect → Calibrate → Balance flow, recorded-file verification/plots, explicit baseline and endless rounds are now implemented. Current behavior and test procedure are in [the walkthrough](replay-and-connection.md) and [architecture](architecture.md). Earlier 60-second-round and manual-input proposals below are superseded; remaining task estimates need to account for these completed components.
+
+
 Working game title: **Brain Balance**. Planning baseline: October 8, 2026. This is the implementation map for the club's workstreams. It supersedes the earlier rough task estimates. The code already in this repo is a manual/synthetic starter, not the completed live BCI product.
 
 ## 1. Product and decisions
