@@ -14,11 +14,15 @@
 
 Repo name approved by project lead: `Neumont-BCI-project` (GitHub-compatible form). Initial owner: authenticated account `QuinnEvans34`. Initial visibility: private.
 
+## Hardware update
+
+Club order message specifies Ultracortex Mark IV and Cyton 8-channel. Acquisition preference is BrainFlow's Cyton serial board through the OpenBCI USB dongle. Delivery, assembly, firmware, kit completeness and live functionality are unverified. See the [updated weekend plan](weekend-live-demo.md).
+
 ## Need answers
 
 | Question | Impact | Resolve by |
 | --- | --- | --- |
-| Headset make/model, firmware, raw access, channel map | Acquisition SDK and feasible features | Weekend hardware spike |
+| Cyton firmware, actual wiring/channel map, raw-stream verification | Acquisition SDK and feasible features | Weekend hardware spike |
 | Team size, experience, weekly availability | Assignment sizes and lead pairing | Next meeting |
 | GitHub owner/name and initial visibility | Remote creation and issue board | Weekend |
 | Existing meditation repo | Possible reusable recording/UI code only | After core architecture agreed |

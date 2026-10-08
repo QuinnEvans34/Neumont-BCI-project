@@ -6,9 +6,23 @@ This is a deliberately narrower deliverable than the full blueprint. Target: sho
 
 Connect the real device, collect roughly 60 valid seconds of baseline, display a changing live EEG feature score, and use that score to change the existing game's assistance. Show source live and pause when data is missing or clearly unusable. Repeat the demonstration after restarting. A labeled recording/video is backup, not a replacement claim of live operation.
 
-## Required information before the connection code
+## Confirmed hardware and acquisition route
 
-Exact headset model/firmware, demo OS, and whether vendor software already shows EEG. Check raw access and SDK requirements. Prefer BrainFlow if exact board/OS is supported; otherwise use the vendor route. Do not invent board ids or spend the weekend writing Bluetooth protocols. If access cannot be resolved in the first 2–4 focused hours, identify the precise blocker and test one documented alternative.
+Hardware reported from the club's order message: Ultracortex Mark IV headset and OpenBCI Cyton 8-channel board. Delivery is expected, not verified; no live hardware test has happened.
+
+Select direct **Cyton → OpenBCI USB radio dongle → serial port → BrainFlow → Python pipeline → game**. BrainFlow documents `BoardIds.CYTON_BOARD` and `BrainFlowInputParams.serial_port` on Windows/macOS/Linux. On macOS use `/dev/cu...`; on Windows select the actual `COM...` port. Read channel indices/rate from BrainFlow metadata; Cyton's standard configuration is 250 Hz.
+
+Before arrival: develop against BrainFlow's synthetic board with the same acquisition interface. This tests software mechanics only; it does not simulate human EEG validity. When hardware arrives, first inspect a stream in OpenBCI GUI, then stop its acquisition before opening the same serial port from Python.
+
+Check the order includes the USB dongle, suitable battery/charger, electrodes/cables and two reference/bias ear clips, and whether the Ultracortex is assembled or needs assembly. Follow the actual kit instructions; electrode contact/fitting can consume more weekend time than Python code.
+
+If wired according to the documented 8-channel Mark IV layout, O1/O2 are on Cyton channels 7/8. Verify actual wiring, not just channel numbers. Those posterior electrodes are candidates for the alpha feature; use BrainFlow's EEG-row map to select them. A short eyes-open/closed check can help inspect alpha changes but remains a setup check, not proof of stress or intentional eyes-open game control.
+
+Sources: [Cyton setup](https://docs.openbci.com/GettingStarted/Boards/CytonGS/), [Mark IV assembly/wiring](https://docs.openbci.com/AddOns/Headwear/MarkIV/), [BrainFlow Cyton support](https://brainflow.readthedocs.io/en/stable/SupportedBoards.html#cyton), [Cyton data format](https://docs.openbci.com/Cyton/CytonDataFormat/).
+
+## Remaining information before the connection code
+
+Headset family is now known. Still confirm firmware, demo OS, kit completeness/assembly and whether OpenBCI GUI displays EEG after delivery. Check raw access and SDK requirements. Prefer BrainFlow if exact board/OS is supported; otherwise use the vendor route. Do not invent board ids or spend the weekend writing Bluetooth protocols. If access cannot be resolved in the first 2–4 focused hours, identify the precise blocker and test one documented alternative.
 
 ## Simplest signal pipeline
 
