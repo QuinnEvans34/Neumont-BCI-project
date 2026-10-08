@@ -8,7 +8,7 @@ AI & Data Club's ten-week showcase project: a virtual ball-and-beam neurofeedbac
 
 ## Start here
 
-**Immediate weekend goal:** [Live calibrated EEG → game demo](docs/weekend-live-demo.md) (8–14 focused hours plus contingency; headset access required).
+**Immediate weekend goal:** [Recorded EEG → calibration → game, plus tomorrow’s hardware check](docs/replay-and-connection.md). No headset needed for replay. See also the [live-demo plan](docs/weekend-live-demo.md).
 
 **Primary implementation plan:** [Complete build blueprint](docs/blueprint.md), with [exact source/reuse matrix](docs/blueprint/reuse-matrix.md) and [34 estimated task cards](docs/blueprint/work-breakdown.md).
 
@@ -33,7 +33,7 @@ npm run dev
 
 Open http://127.0.0.1:5173. Click Start new round. The slider stands in for an EEG score. Arrow keys add practice steering. All of this is simulation, not recorded or live EEG.
 
-## Run the optional synthetic backend
+## Run the EEG backend
 
 Prerequisite: Python 3.10+; recommended 3.11 or 3.12.
 
@@ -44,7 +44,9 @@ python -m pip install -r backend/requirements.txt
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-Run the frontend in a second terminal. Select Local backend stream. It connects to `ws://127.0.0.1:8000/ws/input` and displays the synthetic source. No headset driver or model is included yet.
+Run the frontend in a second terminal. The connection lab lists local BrainFlow recordings and serial ports. Select a recording and Connect / restart, wait for the 60-second valid-data baseline, then select Local backend stream and start a round. Live Cyton uses the same processing path with the USB serial port. Close the OpenBCI GUI board session before connecting directly. The default backend source is explicitly synthetic until you choose replay or live.
+
+Recordings default to `~/Documents/OpenBCI_GUI/Recordings`. Set `BCI_RECORDINGS_DIR` to another folder before starting the backend if needed. Raw recordings stay outside Git. Replay stops at the end; reconnect to restart. See [replay and debugging instructions](docs/replay-and-connection.md).
 
 Windows: create the environment with `py -m venv .venv`, then activate `.venv\Scripts\Activate.ps1` in PowerShell.
 
@@ -53,14 +55,15 @@ Windows: create the environment with `py -m venv .venv`, then activate `.venv\Sc
 ```sh
 npm test
 npm run build
+python -m unittest backend.test_signal
 ```
 
 Production assets are written to `apps/web/dist`. Development is local: this project does not need cloud hosting to demonstrate the headset. Font loading is optional and falls back to system fonts offline.
 
 ## Current status
 
-Implemented: responsive React shell, Phaser renderer, fixed-step constrained simulation, 60-second round, time-in-zone score, manual score slider, synthetic Python WebSocket stream, input validation and stale-input pause.
+Implemented: responsive React shell, Phaser renderer, fixed-step constrained simulation, 60-second round, time-in-zone score, manual score slider, Python WebSocket stream, Cyton BrainFlow replay and direct-live adapters, relative-alpha feature, robust 60-second baseline, diagnostic panel, input validation and stale-input pause.
 
-Planned: headset integration, actual calibration, signal-quality assessment, recording/replay, formal input-mode switching, and model evaluation. The current `calibrated: true` synthetic flag is only a protocol fixture.
+Still to verify: physical Cyton connection, intentional EEG control, and feature/channel choices on club participants. Planned: stronger artifact assessment, session recording, formal input-mode switching, and model evaluation. The current quality gate is an experimental amplitude/flatness check; the synthetic baseline is bypassed and labeled.
 
 Repository: https://github.com/QuinnEvans34/Neumont-BCI-project (initially private). A local Git repo already exists. Dependencies are linked and attributed in the research document; no upstream template source or sample assets were copied. The club should choose its own source-code license before public release.

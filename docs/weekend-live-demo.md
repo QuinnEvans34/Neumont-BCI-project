@@ -1,5 +1,7 @@
 # Weekend live demo: calibration → EEG feature → beam
 
+**Update:** Native recorded-Cyton replay, statistical calibration, a direct-live adapter and connection diagnostics are now implemented. With no weekend hardware access, follow [Replay and connection plan](replay-and-connection.md). Physical connectivity and deliberate EEG control remain unverified.
+
 This is a deliberately narrower deliverable than the full blueprint. Target: show a real headset affecting the existing software game at the next meeting. No trained classifier, stress detector, new game engine, or redesigned app is required.
 
 ## Definition of success

@@ -1,0 +1,33 @@
+import { useEffect, useState } from 'react';
+const API = 'http://127.0.0.1:8000';
+type Status = { source: string; connected: boolean; samples_received: number; sample_rate_hz: number; packet_age_ms: number | null; calibration_seconds: number; calibrated: boolean; relative_alpha: number | null; quality: string; error: string | null; channel_std_uv: number[] };
+type Options = { recordings: string[]; ports: { device: string; description: string }[] };
+export default function Diagnostics({ onChange }: { onChange: () => void }) {
+  const [status, setStatus] = useState<Status | null>(null);
+  const [options, setOptions] = useState<Options>({ recordings: [], ports: [] });
+  const [source, setSource] = useState('replay'); const [recording, setRecording] = useState('');
+  const [port, setPort] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  async function refresh() {
+    try { const r = await fetch(`${API}/api/options`); if (!r.ok) throw Error('Cannot list inputs'); const o: Options = await r.json(); setOptions(o); setRecording(v => v || o.recordings[0] || ''); setPort(v => v || o.ports[0]?.device || ''); }
+    catch { setError('Backend unavailable. Start the Python server.'); }
+  }
+  useEffect(() => {
+    void refresh(); let disposed = false;
+    const poll = async () => { try { const r = await fetch(`${API}/api/status`); if (!r.ok) throw Error(); const s: Status = await r.json(); if (!disposed) setStatus(s); } catch { if (!disposed) setStatus(null); } };
+    void poll(); const timer = setInterval(poll, 1000); return () => { disposed = true; clearInterval(timer); };
+  }, []);
+  async function command(action: string) {
+    setBusy(true); setError(''); onChange();
+    try { const r = await fetch(`${API}/api/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, ...(action === 'connect' ? { body: JSON.stringify({ source, recording, serial_port: port }) } : {}) }); const result = await r.json(); if (!r.ok) throw Error(result.detail || 'Command failed'); setStatus(result); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Command failed'); } finally { setBusy(false); }
+  }
+  return <section className="diagnostics"><p className="eyebrow">CONNECTION LAB</p><h2>Inspect the signal.</h2><p>Replay runs recorded EEG through the live processing path. Live connects directly to Cyton; close the OpenBCI GUI session first.</p>
+    <div className="debug-controls"><div><label htmlFor="board-source">Backend source</label><select id="board-source" value={source} onChange={e => setSource(e.target.value)}><option value="replay">Recorded Cyton EEG</option><option value="live">Live Cyton · USB dongle</option><option value="synthetic">Synthetic score · UI testing</option></select></div>
+    {source === 'replay' && <div><label htmlFor="recording">Local BrainFlow recording</label><select id="recording" value={recording} onChange={e => setRecording(e.target.value)}>{options.recordings.map(p => <option key={p} value={p}>{p}</option>)}</select></div>}
+    {source === 'live' && <div><label htmlFor="serial">Serial port · use /dev/cu… on Mac</label><select id="serial" value={port} onChange={e => setPort(e.target.value)}>{options.ports.map(p => <option key={p.device} value={p.device}>{p.device} · {p.description}</option>)}</select></div>}</div>
+    <div className="debug-actions"><button disabled={busy || (source === 'replay' && !recording) || (source === 'live' && !port)} onClick={() => void command('connect')}>Connect / restart</button><button className="secondary" disabled={busy} onClick={() => void command('disconnect')}>Disconnect</button><button className="secondary" disabled={busy || !status?.connected || status.source === 'synthetic'} onClick={() => void command('calibrate')}>Recalibrate · 60s</button><button className="secondary" onClick={() => void refresh()}>Refresh files / ports</button></div>
+    {status ? <><div className="metrics"><div><small>ACTIVE INPUT</small><strong>{status.source}</strong></div><div><small>RECEIVED SAMPLES</small><strong>{status.samples_received.toLocaleString()}</strong></div><div><small>PACKET AGE</small><strong>{status.packet_age_ms === null ? '—' : `${status.packet_age_ms}ms`}</strong></div><div><small>BASELINE</small><strong>{status.source === 'synthetic' ? 'Bypassed' : status.calibrated ? 'Ready' : `${status.calibration_seconds} / 60s`}</strong></div></div><p className="hint">Cyton expected rate: {status.sample_rate_hz} Hz · quality gate: {status.quality} · relative alpha: {status.relative_alpha?.toFixed(3) ?? '—'} · board session: {status.connected ? 'open' : 'closed'}</p><p className="hint">Channel standard deviation (µV): {status.channel_std_uv.map((v, i) => `CH${i + 1} ${v.toFixed(1)}`).join(' · ') || 'Waiting for samples'}</p></> : <p className="notice">Backend disconnected.</p>}
+    {(error || status?.error) && <p role="alert" className="notice">{error || status?.error}</p>}
+    <p className="hint">Calibration collects 30 valid, separate 2-second windows. Poor or missing data pauses play. These simple gates do not establish electrode contact or measure stress. Select “Local backend stream” above to play.</p>
+  </section>;
+}
