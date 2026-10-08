@@ -8,6 +8,8 @@ AI & Data Club's ten-week showcase project: a virtual ball-and-beam neurofeedbac
 
 ## Start here
 
+**Immediate weekend goal:** [Live calibrated EEG → game demo](docs/weekend-live-demo.md) (8–14 focused hours plus contingency; headset access required).
+
 **Primary implementation plan:** [Complete build blueprint](docs/blueprint.md), with [exact source/reuse matrix](docs/blueprint/reuse-matrix.md) and [34 estimated task cards](docs/blueprint/work-breakdown.md).
 
 - [Pitch and meeting agenda](docs/pitch.md)
