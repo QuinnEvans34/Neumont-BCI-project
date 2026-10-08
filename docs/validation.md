@@ -30,3 +30,7 @@ Browser checks on this laptop without a headset verified disconnected startup, d
 ## Falling and simplified session controls
 
 Removed manual score controls and keyboard steering. Three frontend tests pass, including losses at both beam ends, frozen scoring after loss, a fresh reset, low-assistance loss and high-assistance 60-second completion. Frontend build passes. Rendering animates an exiting ball in world coordinates under gravity.
+
+## Synthetic start workflow
+
+A fresh page could start synthetic input, but the selector did not enable the selected input, and initially displayed live Cyton even if simulation was already active. Selecting Synthetic now explicitly enables simulation, the selector initializes from backend status, and synthetic frames are valid immediately without waiting for a worker tick. Live and replay still require explicit connection. Fifteen backend tests, three frontend tests and the production build passed. Browser checks start with disconnected input, select Synthetic without pressing Connect, then start and restart a round.

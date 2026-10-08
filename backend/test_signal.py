@@ -133,6 +133,17 @@ class ConnectionTests(unittest.TestCase):
             self.assertFalse(s.frame()['calibrated'])
             self.assertFalse(s.status()['connected'])
 
+    def test_synthetic_is_ready_immediately_without_board_or_calibration(self):
+        from backend.main import Service, ConnectRequest
+        s = Service()
+        s.connect(ConnectRequest(source='synthetic'))
+        f = s.frame()
+        self.assertEqual(f['source'], 'synthetic')
+        self.assertEqual(f['quality'], 'good')
+        self.assertTrue(f['calibrated'])
+        self.assertIsNone(s.board)
+        self.assertFalse(s.status()['live_verified'])
+
     def test_synthetic_is_explicit_and_disconnect_disables_it(self):
         from backend.main import Service, ConnectRequest
         s = Service()

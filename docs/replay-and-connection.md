@@ -58,10 +58,12 @@ No trained model is required for this milestone. Simulation/replay success is no
 
 ## Connection reliability changes
 
-The backend starts disconnected; the UI starts with live Cyton selected and requires explicit port selection. Replay and synthetic simulation display an explicit no-live-headset message. `session_open` describes SDK ownership, `receiving_samples` describes sample receipt within two seconds, and `live_verified` requires both fresh samples and live Cyton source. `connected` now describes fresh sample receipt, never merely an open session. It does not validate electrode contact.
+The backend starts disconnected; the UI initializes its selector from the backend source and requires explicit port selection. Replay and synthetic simulation display an explicit no-live-headset message. `session_open` describes SDK ownership, `receiving_samples` describes sample receipt within two seconds, and `live_verified` requires both fresh samples and live Cyton source. `connected` now describes fresh sample receipt, never merely an open session. It does not validate electrode contact.
 
 Opening a live board starts a waiting state. If no samples arrive within five seconds after acquisition starts, the service releases the board and reports an error. A previously working stream becomes stalled after two seconds without new samples. Frames fail closed on stale or disconnected input even between worker ticks. Disconnect clears calibration; calibration requests without incoming samples return HTTP 409.
 
 ## Game control update
 
 The session panel no longer has manual mode, a score slider or keyboard steering. Input comes automatically from the Connection Lab. Low assistance reduces stabilizing feedback and increases disturbances; high assistance strengthens feedback and reduces disturbances. Crossing either beam end causes a fall animation and ends the round immediately. Scoring and the round timer freeze at loss; Play again resets the ball. Synthetic development input remains explicitly labeled in the Connection Lab.
+
+Selecting Synthetic explicitly starts simulation without an additional Connect click; Restart simulation enables it again after Disconnect. This bypasses EEG calibration only for labeled synthetic frames.

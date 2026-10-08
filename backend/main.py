@@ -61,6 +61,7 @@ class Service:
         self.cal = Calibration()
         self.buffer = np.empty((len(CHANNELS), 0))
         if request.source == 'synthetic':
+            self.quality = 'good'
             self.enabled = True
             return
         params = BrainFlowInputParams()
