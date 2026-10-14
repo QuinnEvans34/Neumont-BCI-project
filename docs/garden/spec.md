@@ -1,6 +1,6 @@
 # Glowing Garden + multiple-game selection
 
-Status: approved concept, implementation specification; not yet implemented.
+Status: approved concept; first version implemented October 14, 2026 (see [verification notes](verification.md)).
 Owner: AI & Data Club. Prepared October 14, 2026 for implementation by Claude.
 Read [the implementation handoff](claude-handoff.md) after this specification.
 
