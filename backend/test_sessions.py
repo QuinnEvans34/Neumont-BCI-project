@@ -106,6 +106,35 @@ class SessionTests(unittest.TestCase):
             s.ingest(block(262,2))
             self.assertEqual(s.counter_gaps,2)
 
+    def test_live_small_gaps_and_duplicates_reject_then_recover(self):
+        for duplicate in (False, True):
+            with self.subTest(duplicate=duplicate):
+                s=service()
+                with patch('backend.main.time.monotonic',return_value=101):
+                    s.ingest(block(0,500));s.begin_calibration()
+                    # Discontinuity crosses SDK reads, well below the 100 ms timestamp gate.
+                    s.ingest(block(500,200))
+                    start=699 if duplicate else 701
+                    s.ingest(block(start,300))
+                    self.assertEqual(s.rejected,1)
+                    self.assertEqual(s.cal.values,[])
+                    self.assertEqual(s.quality,'poor')
+                    self.assertIn('Cyton packets',s.last_rejection)
+                    s.ingest(block(start+300,500))
+                    self.assertEqual(len(s.cal.values),1)
+                    self.assertEqual(s.quality,'good')
+
+    def test_multiple_packet_gaps_in_large_read_reject_each_window(self):
+        s=service()
+        with patch('backend.main.time.monotonic',return_value=101):
+            s.ingest(block(0,500));s.begin_calibration()
+            data=block(500,1000)
+            data[0,100:]=(data[0,100:]+1)%256
+            data[0,600:]=(data[0,600:]+1)%256
+            s.ingest(data)
+            self.assertEqual(s.rejected,2)
+            self.assertEqual(s.cal.values,[])
+
     def test_recalibration_preserves_source_and_position(self):
         s=service()
         with patch('backend.main.time.monotonic',return_value=101):

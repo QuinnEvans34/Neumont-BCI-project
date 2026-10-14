@@ -62,6 +62,7 @@ class Service:
         self.last_counter = None
         self.counter_gaps = 0
         self.counter_duplicates = 0
+        self.counter_breaks = deque()
 
     def stop(self):
         try:
@@ -165,6 +166,11 @@ class Service:
             delta = np.diff(seq) % 256
             self.counter_duplicates += int((delta == 0).sum())
             self.counter_gaps += int(np.maximum(delta-1,0).sum())
+            # Store absolute sample positions so gaps across SDK reads are also
+            # excluded from spectral windows. Normal 255 -> 0 wrap is continuous.
+            offset = 0 if self.last_counter is not None else 1
+            breaks = start + np.flatnonzero(delta != 1) + offset
+            self.counter_breaks.extend(int(i) for i in breaks)
             self.last_counter = int(counters[-1])
         self.total += count
         self.last_packet = now
@@ -174,6 +180,8 @@ class Service:
         self.timestamps = np.r_[self.timestamps,ts][-RATE*10:]
         self.value, self.channel_details = analyze(self.buffer,RATE)
         if len(self.timestamps) >= RATE*2 and np.any((np.diff(self.timestamps[-RATE*2:]) > .1) | (np.diff(self.timestamps[-RATE*2:]) < 0)):
+            self.value = None
+        if self.counter_breaks and self.counter_breaks[-1] >= self.total-RATE*2:
             self.value = None
         self.quality = 'good' if self.value is not None else 'poor'
         self.history.append(dict(sample=self.total, value=self.value))
@@ -186,7 +194,12 @@ class Service:
                 self.pending = self.pending[:,RATE*2:]
                 self.pending_ts = self.pending_ts[RATE*2:]
                 value, details = analyze(window,RATE)
-                if np.any((np.diff(window_ts) > .1) | (np.diff(window_ts) < 0)):
+                window_start = self.total-self.pending.shape[1]-RATE*2
+                live_gap = any(window_start <= i < window_start+RATE*2 for i in self.counter_breaks)
+                if live_gap:
+                    value = None
+                    reason = 'Missing or duplicated Cyton packets in baseline window'
+                elif np.any((np.diff(window_ts) > .1) | (np.diff(window_ts) < 0)):
                     value = None
                     reason = 'Timestamp gap or discontinuity in baseline window'
                 else:
@@ -205,6 +218,10 @@ class Service:
             if not self.calibrating:
                 self.pending = np.empty((len(CHANNELS),0))
                 self.pending_ts = np.empty(0)
+        # Keep only boundaries that could affect a future rolling/pending window.
+        keep_from = min(self.total-RATE*2, self.total-self.pending.shape[1])
+        while self.counter_breaks and self.counter_breaks[0] < keep_from:
+            self.counter_breaks.popleft()
         if self.value is not None and self.cal.center is not None:
             self.cal.map(self.value)
 

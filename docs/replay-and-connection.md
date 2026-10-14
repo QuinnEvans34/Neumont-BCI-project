@@ -1,4 +1,4 @@
-# Guided session and tomorrow's hardware test
+# Guided session and hardware test
 
 ## Start and inspect
 
@@ -31,7 +31,7 @@ Open **Connection & playback evidence** to inspect session ID, matched/mismatche
 
 Tests cover arbitrary packet boundaries, exact calibration sample intervals and direct feature equality, no implicit baseline, rejected windows, timestamp gaps, preserved session position, mismatch detection and exact EOF. A native SDK integration test creates a short temporary file, plays the whole file, checks every EEG sample and the final feature, and confirms EOF makes input unusable. Raw participant recordings remain outside Git.
 
-## Tomorrow's 15–25-minute live check
+## 15–25-minute live check
 
 1. Establish a known-working stream in OpenBCI GUI. Note actual serial port, board configuration and channel-to-electrode wiring. Save a short fallback recording.
 2. Close its board session so our backend can own the port. Keep the GUI available as a reference.
@@ -44,7 +44,7 @@ Tests cover arbitrary packet boundaries, exact calibration sample intervals and 
 
 Additional no-hardware checks: no port must not connect; a non-Cyton/open-but-silent session must not be reported as streaming; simulated/replayed data must never claim live hardware. Automated versions use SDK mocks; the physical board must still be tested.
 
-Cyton sample-counter continuity is shown as an estimate: modulo-256 wrap is normal, gaps suggest missing samples, but resets and long interruptions can make loss estimates ambiguous. Timestamp gaps and per-channel gates are separate evidence.
+Live feature and baseline windows containing a detected Cyton packet-counter gap or duplicate are rejected; clean windows recover automatically. Cyton sample-counter continuity is shown as an estimate: modulo-256 wrap is normal, gaps suggest missing samples, but resets and long interruptions can make loss estimates ambiguous. Timestamp gaps and per-channel gates are separate evidence.
 
 ## Implementation notes
 

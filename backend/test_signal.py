@@ -115,6 +115,7 @@ class ConnectionTests(unittest.TestCase):
         s.enabled = True
         s.board = MagicMock()
         data = np.zeros((24,500))
+        data[0] = np.arange(500)%256
         for ch in CHANNELS: data[ch] = 20*np.sin(2*np.pi*10*np.arange(500)/250)
         s.board.get_board_data.return_value = data
         with patch('backend.main.time.monotonic', return_value=100):

@@ -8,6 +8,8 @@ AI & Data Club's ten-week showcase project: a virtual ball-and-beam neurofeedbac
 
 ## Start here
 
+**Next feature — Glowing Garden:** [Product specification](docs/garden/spec.md) and [Claude implementation handoff](docs/garden/claude-handoff.md). This planned addition introduces a shared game selector while preserving the existing EEG pipeline and Balance Beam.
+
 **Immediate weekend goal:** [Recorded EEG → calibration → game, plus tomorrow’s hardware check](docs/replay-and-connection.md). No headset needed for replay. See also the [live-demo plan](docs/weekend-live-demo.md).
 
 **Primary implementation plan:** [Complete build blueprint](docs/blueprint.md), with [exact source/reuse matrix](docs/blueprint/reuse-matrix.md) and [34 estimated task cards](docs/blueprint/work-breakdown.md).
