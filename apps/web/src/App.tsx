@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import Game from "./Game";
+import Garden from "./Garden";
+import GamePicker from "./GamePicker";
+import { gameInfo, type GameId } from "./games/catalog";
+import { initialWatch, observeReference, canTick } from "./games/lifecycle";
+import { baselineRelation } from "./gardenSimulation";
+import { usePrefs } from "./gardenPrefs";
 import SignalPanel, {
   Overview,
   duration,
@@ -11,7 +17,7 @@ import SignalPanel, {
 import { initialState } from "./simulation";
 import { parseFrame, isUsable, type InputFrame } from "./input";
 const API = "http://127.0.0.1:8000";
-type Page = "setup" | "calibrate" | "play";
+type Page = "setup" | "calibrate" | "choose" | "play";
 type Options = {
   recordings: string[];
   ports: { device: string; description: string }[];
@@ -38,7 +44,44 @@ export default function App() {
   const [roundSession, setRoundSession] = useState<string | null>(null);
   const [reset, setReset] = useState(0);
   const [stats, setStats] = useState(initialState);
+  const [game, setGame] = useState<GameId>("garden");
+  const [gardenStarted, setGardenStarted] = useState(false);
+  const [gardenRunning, setGardenRunning] = useState(false);
+  const [gardenSession, setGardenSession] = useState<string | null>(null);
+  const [gardenReset, setGardenReset] = useState(0);
+  const [gardenIntro, setGardenIntro] = useState(false);
+  const [gardenPrefs, setGardenPrefs] = usePrefs();
+  const [visible, setVisible] = useState(
+    () =>
+      typeof document === "undefined" || document.visibilityState === "visible",
+  );
+  const watch = useRef(initialWatch());
   const initialized = useRef(false);
+  // Comparison reference changed: both games lose progress bound to the old baseline.
+  function invalidateGames() {
+    setRunning(false);
+    setHasRound(false);
+    setRoundSession(null);
+    setReset((v) => v + 1);
+    setGardenRunning(false);
+    setGardenStarted(false);
+    setGardenSession(null);
+    setGardenReset((v) => v + 1);
+    setGardenIntro(false);
+  }
+  useEffect(() => {
+    // A background tab or sleeping laptop pauses everything; return needs Resume.
+    const onVisibility = () => {
+      const shown = document.visibilityState === "visible";
+      setVisible(shown);
+      if (!shown) {
+        setRunning(false);
+        setGardenRunning(false);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
   async function refresh() {
     try {
       const r = await fetch(`${API}/api/options`);
@@ -120,6 +163,7 @@ export default function App() {
         setConnected(false);
         setFrame(null);
         setRunning(false);
+        setGardenRunning(false);
         retry = setTimeout(connect, 1500);
       };
       socket.onerror = () => socket.close();
@@ -144,13 +188,28 @@ export default function App() {
   const t = fresh ? telemetry : null;
   const usable = connected && isUsable(frame, receivedAt, now);
   const sameSession = roundSession === t?.session_id;
+  const gardenSame = gardenSession !== null && gardenSession === t?.session_id;
   useEffect(() => {
     if (!usable || !sameSession) setRunning(false);
   }, [usable, sameSession]);
+  useEffect(() => {
+    if (!usable || !gardenSame) setGardenRunning(false);
+  }, [usable, gardenSame]);
+  // Fresh telemetry reveals new sessions and recalibration, including ones
+  // started by another viewer. Missing telemetry is an outage, not a change.
+  useEffect(() => {
+    const r = observeReference(
+      watch.current,
+      t ? { session_id: t.session_id, calibrating: t.calibrating } : null,
+    );
+    watch.current = r.watch;
+    if (r.invalidate) invalidateGames();
+  }, [t?.session_id, t?.calibrating]);
   async function command(action: string) {
     setBusy(true);
     setError("");
     setRunning(false);
+    setGardenRunning(false);
     try {
       const r = await fetch(`${API}/api/${action}`, {
         method: "POST",
@@ -164,16 +223,13 @@ export default function App() {
       setTelemetry(result);
       if (action === "connect") {
         setFrame(null);
-        setHasRound(false);
-        setRoundSession(null);
-        setReset((v) => v + 1);
+        invalidateGames();
         setPage("calibrate");
         window.scrollTo(0, 0);
       }
       if (action === "calibrate") {
         setFrame(null);
-        setHasRound(false);
-        setRoundSession(null);
+        invalidateGames();
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -187,11 +243,55 @@ export default function App() {
     setReset((v) => v + 1);
     setHasRound(true);
     setRunning(true);
+    setGardenRunning(false);
+    setGame("balance");
     setPage("play");
     window.scrollTo(0, 0);
   }
+  function startGarden() {
+    setGardenIntro(false);
+    if (!usable || busy || !t?.session_id) return;
+    setGardenSession(t.session_id);
+    setGardenReset((v) => v + 1);
+    setGardenStarted(true);
+    setGardenRunning(true);
+    setRunning(false);
+    setGame("garden");
+    setPage("play");
+  }
+  // A new plant begins with the optional 30-second settle-in. The old plant is
+  // cleared immediately; the new one binds to the session when growth starts.
+  function requestGarden() {
+    if (!usable || busy || !t?.session_id) return;
+    if (!gardenPrefs.settleIn) return startGarden();
+    setGardenRunning(false);
+    setGardenStarted(false);
+    setGardenSession(null);
+    setGardenReset((v) => v + 1);
+    setGardenIntro(true);
+    setRunning(false);
+    setGame("garden");
+    setPage("play");
+  }
+  // From the chooser: continue an existing game paused, or start a new one.
+  function openGame(id: GameId) {
+    const existing =
+      id === "garden" ? gardenStarted && gardenSame : hasRound && sameSession;
+    if (existing) {
+      setRunning(false);
+      setGardenRunning(false);
+      setGame(id);
+      setPage("play");
+      window.scrollTo(0, 0);
+    } else if (id === "garden") {
+      requestGarden();
+      window.scrollTo(0, 0);
+    } else start();
+  }
   function navigate(next: Page) {
     setRunning(false);
+    setGardenRunning(false);
+    setGardenIntro(false);
     setPage(next);
     setError("");
     window.scrollTo(0, 0);
@@ -210,7 +310,7 @@ export default function App() {
             navigate("setup");
           }}
         >
-          AI & DATA CLUB <span>/ BRAIN BALANCE</span>
+          AI & DATA CLUB <span>/ BRAIN GAMES</span>
         </a>
         <span className={`source-pill ${fresh ? "online" : ""}`}>
           {fresh
@@ -221,7 +321,7 @@ export default function App() {
         </span>
       </header>
       <nav className="steps" aria-label="Session steps">
-        {(["setup", "calibrate", "play"] as Page[]).map((p, i) => (
+        {(["setup", "calibrate", "choose", "play"] as Page[]).map((p, i) => (
           <button
             key={p}
             className={page === p ? "selected" : ""}
@@ -233,7 +333,9 @@ export default function App() {
               ? "Connect"
               : p === "calibrate"
                 ? "Calibrate"
-                : "Balance"}
+                : p === "choose"
+                  ? "Choose a game"
+                  : "Play"}
           </button>
         ))}
       </nav>
@@ -422,7 +524,7 @@ export default function App() {
                 {t?.source === "synthetic"
                   ? "Bypassed for demo"
                   : t?.calibrated
-                    ? "Ready to balance"
+                    ? "Ready to play"
                     : t?.calibrating
                       ? "Collecting baseline…"
                       : "Ready when you are"}
@@ -484,12 +586,15 @@ export default function App() {
                   {t.calibration_error}
                 </p>
               )}
-              <button disabled={busy || !usable} onClick={start}>
-                Start balancing →
+              <button
+                disabled={busy || !t?.session_id}
+                onClick={() => navigate("choose")}
+              >
+                Choose a game
               </button>
               <p className="hint">
-                Your stream keeps running. Starting the game preserves the
-                session, sample position, and baseline.
+                Your stream keeps running. Choosing and switching games
+                preserves the session, sample position, and baseline.
               </p>
               <button
                 className="secondary"
@@ -502,9 +607,107 @@ export default function App() {
           </div>
         </>
       )}
-      <div hidden={page !== "play"}>
+      {page === "choose" && (
+        <GamePicker
+          ready={usable && !busy}
+          reason={
+            !t?.session_id
+              ? "No input session yet. Connect a source first."
+              : t.source !== "synthetic" && !t.calibrated
+                ? "Build a baseline on Calibrate before starting a game."
+                : streamMessage(t)
+          }
+          status={{
+            garden: {
+              inProgress: gardenStarted && gardenSame,
+              detail: gardenStarted && gardenSame ? "In progress · paused" : "",
+            },
+            balance: {
+              inProgress: hasRound && sameSession,
+              detail:
+                hasRound && sameSession
+                  ? stats.fell
+                    ? "Last round ended"
+                    : "In progress · paused"
+                  : "",
+            },
+          }}
+          onOpen={openGame}
+          onConnect={() => navigate("setup")}
+          onCalibrate={() => navigate("calibrate")}
+        />
+      )}
+      <div hidden={page !== "play" || game !== "garden"}>
+        <Garden
+          live={canTick({
+            selected: game === "garden",
+            onPlayPage: page === "play",
+            running: gardenRunning,
+            visible,
+            usable,
+            boundSession: gardenSession,
+            telemetrySession: t?.session_id,
+          })}
+          shown={page === "play" && game === "garden" && visible}
+          intro={gardenIntro && page === "play" && game === "garden"}
+          score={usable ? (frame?.score ?? null) : null}
+          frameSeq={frame?.sequence ?? -1}
+          reset={gardenReset}
+          started={gardenStarted}
+          canResume={gardenStarted && usable && gardenSame && !busy}
+          canStart={usable && !busy && Boolean(t?.session_id)}
+          statusMessage={
+            !usable
+              ? streamMessage(t)
+              : !gardenSame
+                ? "The input session changed. Start a new plant with its baseline."
+                : "Paused. Your growth is saved for this session."
+          }
+          simulation={t?.source === "synthetic"}
+          sourceLabel={sourceName(t?.source)}
+          sourceId={t?.source ?? "unknown"}
+          prefs={gardenPrefs}
+          setPrefs={setGardenPrefs}
+          relation={
+            usable
+              ? baselineRelation(
+                  t?.relative_alpha,
+                  t?.baseline_center,
+                  t?.baseline_scale,
+                )
+              : null
+          }
+          onPause={() => setGardenRunning(false)}
+          onResume={() => {
+            if (gardenStarted && usable && gardenSame) setGardenRunning(true);
+          }}
+          onNewPlant={requestGarden}
+          onIntroDone={startGarden}
+          onChangeGame={() => navigate("choose")}
+          onInspect={() => navigate("calibrate")}
+          evidence={
+            <details className="garden-evidence">
+              <summary>Signal evidence: source, playback and baseline</summary>
+              {page === "play" && game === "garden" && (
+                <SignalPanel telemetry={t} preview={preview} compact />
+              )}
+            </details>
+          }
+        />
+      </div>
+      <div hidden={page !== "play" || game !== "balance"}>
         <section className="intro">
-          <p className="eyebrow">03 / BALANCE</p>
+          <div className="title-row">
+            <p className="eyebrow">
+              04 / PLAY · {gameInfo("balance").title.toUpperCase()}
+            </p>
+            <button
+              className="secondary change-game"
+              onClick={() => navigate("choose")}
+            >
+              Change game
+            </button>
+          </div>
           <h1>
             {stats.fell ? "Find your balance again." : "Stay in the moment."}
           </h1>
@@ -524,7 +727,15 @@ export default function App() {
             </div>
             <Game
               controls={{
-                running: running && usable && sameSession && page === "play",
+                running: canTick({
+                  selected: game === "balance",
+                  onPlayPage: page === "play",
+                  running,
+                  visible,
+                  usable,
+                  boundSession: roundSession,
+                  telemetrySession: t?.session_id,
+                }),
                 score: frame?.score ?? 0.5,
                 reset,
               }}
@@ -594,11 +805,13 @@ export default function App() {
             </p>
           </aside>
         </div>
-        <SignalPanel telemetry={t} preview={preview} compact />
+        {page === "play" && game === "balance" && (
+          <SignalPanel telemetry={t} preview={preview} compact />
+        )}
       </div>
       <footer>
-        Experimental signal-driven gameplay. Relative alpha and balance
-        assistance are not validated measurements of stress.
+        Experimental signal-driven experience. This is not a validated
+        measurement of stress or health.
       </footer>
     </main>
   );
