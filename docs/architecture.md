@@ -18,6 +18,8 @@ The game uses one Python stream for live, replay and explicitly labeled syntheti
 
 - `apps/web/src/App.tsx`, `SignalPanel.tsx`, `style.css`: UI team.
 - `apps/web/src/Game.tsx`, `simulation.ts`: game team.
+- `apps/web/src/Cairn*.tsx`, `cairn*.ts`, `apps/web/src/assets/cairn/`: Cairn game; `tools/cairn_assets/`: its photo-to-sprite pipeline ([guide](cairn.md)).
+- `backend/openbci_convert.py`, `backend/score_trace.py`: recorded-session tooling for no-headset testing.
 - `apps/web/src/input.ts`: shared contract; changes require frontend/data coordination.
 - `backend/`: streaming and EEG team.
 - Future `backend/adapters/`, `backend/features/`, `experiments/`: create when their tasks begin.

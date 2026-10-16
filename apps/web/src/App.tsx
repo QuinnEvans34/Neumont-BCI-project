@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import Game from "./Game";
 import Garden from "./Garden";
+import Cairn from "./Cairn";
 import GamePicker from "./GamePicker";
 import { gameInfo, type GameId } from "./games/catalog";
 import { initialWatch, observeReference, canTick } from "./games/lifecycle";
 import { baselineRelation } from "./gardenSimulation";
 import { usePrefs } from "./gardenPrefs";
+import { addRound, addStimulus, useCairnRecord } from "./cairnScores";
+import type { CairnMode } from "./cairnSimulation";
 import SignalPanel, {
   Overview,
   duration,
@@ -51,13 +54,18 @@ export default function App() {
   const [gardenReset, setGardenReset] = useState(0);
   const [gardenIntro, setGardenIntro] = useState(false);
   const [gardenPrefs, setGardenPrefs] = usePrefs();
+  const [cairnStarted, setCairnStarted] = useState(false);
+  const [cairnRunning, setCairnRunning] = useState(false);
+  const [cairnSession, setCairnSession] = useState<string | null>(null);
+  const [cairnReset, setCairnReset] = useState(0);
+  const [cairnRecord, updateCairnRecord] = useCairnRecord();
   const [visible, setVisible] = useState(
     () =>
       typeof document === "undefined" || document.visibilityState === "visible",
   );
   const watch = useRef(initialWatch());
   const initialized = useRef(false);
-  // Comparison reference changed: both games lose progress bound to the old baseline.
+  // Comparison reference changed: every game loses progress bound to the old baseline.
   function invalidateGames() {
     setRunning(false);
     setHasRound(false);
@@ -68,6 +76,10 @@ export default function App() {
     setGardenSession(null);
     setGardenReset((v) => v + 1);
     setGardenIntro(false);
+    setCairnRunning(false);
+    setCairnStarted(false);
+    setCairnSession(null);
+    setCairnReset((v) => v + 1);
   }
   useEffect(() => {
     // A background tab or sleeping laptop pauses everything; return needs Resume.
@@ -77,6 +89,7 @@ export default function App() {
       if (!shown) {
         setRunning(false);
         setGardenRunning(false);
+        setCairnRunning(false);
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
@@ -164,6 +177,7 @@ export default function App() {
         setFrame(null);
         setRunning(false);
         setGardenRunning(false);
+        setCairnRunning(false);
         retry = setTimeout(connect, 1500);
       };
       socket.onerror = () => socket.close();
@@ -189,12 +203,16 @@ export default function App() {
   const usable = connected && isUsable(frame, receivedAt, now);
   const sameSession = roundSession === t?.session_id;
   const gardenSame = gardenSession !== null && gardenSession === t?.session_id;
+  const cairnSame = cairnSession !== null && cairnSession === t?.session_id;
   useEffect(() => {
     if (!usable || !sameSession) setRunning(false);
   }, [usable, sameSession]);
   useEffect(() => {
     if (!usable || !gardenSame) setGardenRunning(false);
   }, [usable, gardenSame]);
+  useEffect(() => {
+    if (!usable || !cairnSame) setCairnRunning(false);
+  }, [usable, cairnSame]);
   // Fresh telemetry reveals new sessions and recalibration, including ones
   // started by another viewer. Missing telemetry is an outage, not a change.
   useEffect(() => {
@@ -210,6 +228,7 @@ export default function App() {
     setError("");
     setRunning(false);
     setGardenRunning(false);
+    setCairnRunning(false);
     try {
       const r = await fetch(`${API}/api/${action}`, {
         method: "POST",
@@ -244,6 +263,7 @@ export default function App() {
     setHasRound(true);
     setRunning(true);
     setGardenRunning(false);
+    setCairnRunning(false);
     setGame("balance");
     setPage("play");
     window.scrollTo(0, 0);
@@ -256,6 +276,7 @@ export default function App() {
     setGardenStarted(true);
     setGardenRunning(true);
     setRunning(false);
+    setCairnRunning(false);
     setGame("garden");
     setPage("play");
   }
@@ -270,27 +291,54 @@ export default function App() {
     setGardenReset((v) => v + 1);
     setGardenIntro(true);
     setRunning(false);
+    setCairnRunning(false);
     setGame("garden");
+    setPage("play");
+  }
+  // A new cairn binds to the current session; switching mode always starts one.
+  function startCairn(mode?: CairnMode) {
+    if (mode) updateCairnRecord((r) => ({ ...r, mode }));
+    if (!usable || busy || !t?.session_id) return;
+    setCairnSession(t.session_id);
+    setCairnReset((v) => v + 1);
+    setCairnStarted(true);
+    setCairnRunning(true);
+    setRunning(false);
+    setGardenRunning(false);
+    setGame("cairn");
     setPage("play");
   }
   // From the chooser: continue an existing game paused, or start a new one.
   function openGame(id: GameId) {
     const existing =
-      id === "garden" ? gardenStarted && gardenSame : hasRound && sameSession;
+      id === "garden"
+        ? gardenStarted && gardenSame
+        : id === "cairn"
+          ? cairnStarted && cairnSame
+          : hasRound && sameSession;
     if (existing) {
       setRunning(false);
       setGardenRunning(false);
+      setCairnRunning(false);
       setGame(id);
       setPage("play");
       window.scrollTo(0, 0);
     } else if (id === "garden") {
       requestGarden();
       window.scrollTo(0, 0);
+    } else if (id === "cairn") {
+      // Opens on the start prompt so the player can pick a mode first.
+      setRunning(false);
+      setGardenRunning(false);
+      setGame("cairn");
+      setPage("play");
+      window.scrollTo(0, 0);
     } else start();
   }
   function navigate(next: Page) {
     setRunning(false);
     setGardenRunning(false);
+    setCairnRunning(false);
     setGardenIntro(false);
     setPage(next);
     setError("");
@@ -622,6 +670,10 @@ export default function App() {
               inProgress: gardenStarted && gardenSame,
               detail: gardenStarted && gardenSame ? "In progress · paused" : "",
             },
+            cairn: {
+              inProgress: cairnStarted && cairnSame,
+              detail: cairnStarted && cairnSame ? "In progress · paused" : "",
+            },
             balance: {
               inProgress: hasRound && sameSession,
               detail:
@@ -689,6 +741,55 @@ export default function App() {
             <details className="garden-evidence">
               <summary>Signal evidence: source, playback and baseline</summary>
               {page === "play" && game === "garden" && (
+                <SignalPanel telemetry={t} preview={preview} compact />
+              )}
+            </details>
+          }
+        />
+      </div>
+      <div hidden={page !== "play" || game !== "cairn"}>
+        <Cairn
+          live={canTick({
+            selected: game === "cairn",
+            onPlayPage: page === "play",
+            running: cairnRunning,
+            visible,
+            usable,
+            boundSession: cairnSession,
+            telemetrySession: t?.session_id,
+          })}
+          shown={page === "play" && game === "cairn" && visible}
+          score={usable ? (frame?.score ?? null) : null}
+          reset={cairnReset}
+          mode={cairnRecord.mode}
+          started={cairnStarted}
+          canResume={cairnStarted && usable && cairnSame && !busy}
+          canStart={usable && !busy && Boolean(t?.session_id)}
+          statusMessage={
+            !usable
+              ? streamMessage(t)
+              : !cairnSame
+                ? "The input session changed. Start a new cairn with its baseline."
+                : "Paused. Your cairn is waiting for you."
+          }
+          simulation={t?.source === "synthetic"}
+          sourceLabel={sourceName(t?.source)}
+          sourceId={t?.source ?? "unknown"}
+          record={cairnRecord}
+          onRound={(round) => updateCairnRecord((r) => addRound(r, round))}
+          onFlicker={(on) => updateCairnRecord((r) => ({ ...r, flicker: on }))}
+          onStimulus={(s) => updateCairnRecord((r) => addStimulus(r, s))}
+          onStart={startCairn}
+          onPause={() => setCairnRunning(false)}
+          onResume={() => {
+            if (cairnStarted && usable && cairnSame) setCairnRunning(true);
+          }}
+          onChangeGame={() => navigate("choose")}
+          onInspect={() => navigate("calibrate")}
+          evidence={
+            <details className="garden-evidence">
+              <summary>Signal evidence: source, playback and baseline</summary>
+              {page === "play" && game === "cairn" && (
                 <SignalPanel telemetry={t} preview={preview} compact />
               )}
             </details>

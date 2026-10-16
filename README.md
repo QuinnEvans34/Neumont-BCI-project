@@ -8,6 +8,8 @@ AI & Data Club's ten-week showcase project: a virtual ball-and-beam neurofeedbac
 
 ## Start here
 
+**Cairn (new):** a focus game in a photo-scrapbook style. A hand stacks real stones on a plank balanced on a pointed rock; steady signal keeps the tower still, distraction makes it sway and fall, and every stone is a point. Every fifth stone earns a thumbs up and makes the cairn touchier; fireflies and gusts of wind come more often as it grows, and the fireflies can blink at 15 Hz as an opt-in SSVEP stimulus. Calm and Go modes, best scores per mode and source, and a no-headset test path using recorded OpenBCI sessions. See [the Cairn guide](docs/cairn.md).
+
 **Glowing Garden (first version implemented):** a second game where a central plant glows with your signal and grows with sustained above-baseline input. Both games share one connection, one session and one baseline through a new game chooser. See the [specification](docs/garden/spec.md), [implementation handoff](docs/garden/claude-handoff.md) and [verification notes](docs/garden/verification.md).
 
 **Immediate weekend goal:** [Recorded EEG → calibration → game, plus tomorrow’s hardware check](docs/replay-and-connection.md). No headset needed for replay. See also the [live-demo plan](docs/weekend-live-demo.md).
@@ -49,7 +51,7 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 
 Run the frontend in a second terminal. On **Connect**, choose a recording and click **Start playback & inspect**, or select the Cyton dongle port and click **Connect & inspect**. Close the OpenBCI GUI board session before connecting directly.
 
-On **Calibrate**, inspect the waveform, recording playhead, delivery rate and channel gates. Click **Begin baseline** to collect 30 accepted, non-overlapping two-second windows. Then click **Choose a game** and pick **Glowing Garden** or **Balance Beam**: acquisition keeps running with the same session, file position and baseline, and switching games never reconnects or recalibrates. Simulation bypasses EEG calibration and is explicitly labeled.
+On **Calibrate**, inspect the waveform, recording playhead, delivery rate and channel gates. Click **Begin baseline** to collect 30 accepted, non-overlapping two-second windows. Then click **Choose a game** and pick **Glowing Garden**, **Cairn** or **Balance Beam**: acquisition keeps running with the same session, file position and baseline, and switching games never reconnects or recalibrates. Simulation bypasses EEG calibration and is explicitly labeled.
 
 **Glowing Garden.** The plant's glow, leaf opening, sun and fireflies follow the published score immediately (with extra visual smoothing). Scores above the 50% baseline score earn lasting growth through Sprout → Growing → Blooming; at the default pace that takes about 90 s at score 1 or 180 s at 0.75. Lower scores dim the light but never remove earned leaves. Pause, Change game, a hidden tab, stale or rejected input all freeze the garden until you click Resume; a new session or a recalibration (including one started by another viewer) resets both games.
 
@@ -59,6 +61,10 @@ On **Calibrate**, inspect the waveform, recording playhead, delivery rate and ch
 - *Facilitator panel* (bottom of the garden page): growth pace (full-signal seconds to bloom, 30–600 s, presets), live stats for the current plant, a suggested pace computed from logged EEG sessions for a target bloom time, per-plant notes, and a session log with CSV download. Preferences and the log stay in this browser only; no EEG is stored.
 
 Art review without waiting for input: with `npm run dev`, open http://127.0.0.1:5173/?garden-preview (sliders), `?garden-preview&demo` (time-lapse) or `?garden-preview&demo&sound`. The preview exists only in development builds.
+
+**Cairn.** Pick **Calm** (the hand only moves while the tower is still: a stone every 3 s when you stay focused) or **Go** (a stone every 6 s, ready or not; one that lands on a swaying tower topples it), then **Start stacking**. Signal above baseline stiffens and steadies the tower; time below baseline builds gusts until it falls. Every five stones the tilt that topples it shrinks, and fireflies and gusts (which briefly lower that tilt) grow commoner and stronger; a typical player averages about 15 stones in Calm. The fall ends the round and the stone count is the score; bests are kept per mode and per input source. **Fireflies blink at 15 Hz (SSVEP)** is off by default; turn it on only for players who have agreed to flashing light, and download the flicker log to line it up with EEG. Rules, tuning and the art pipeline are in [docs/cairn.md](docs/cairn.md).
+
+*Test Cairn with recorded EEG, no headset:* convert OpenBCI GUI's sample session (`python -m backend.openbci_convert ~/Documents/OpenBCI_GUI/Sample_Data/OpenBCI_GUI-v6-meditation.txt`), start the backend with `BCI_RECORDINGS_DIR=data/recordings`, and choose that recording on Connect. Or, with only `npm run dev`, open http://127.0.0.1:5173/?cairn-preview to play recorded game input (from `python -m backend.score_trace`) through the game at up to 8× speed.
 
 **Balance Beam.**
 
@@ -81,7 +87,7 @@ Production assets are written to `apps/web/dist`. Development is local: this pro
 
 ## Current status
 
-Implemented: responsive React shell, Phaser renderer, fixed-step rolling simulation with falling and round-ending losses, endless rounds with elapsed and time-in-center scores, Python WebSocket stream, Cyton BrainFlow replay and direct-live adapters, relative-alpha feature, explicit robust 60-second baseline, guided session UI, recording overview/playhead, recent waveform and feature charts, measured sample delivery rate, per-channel rejection reasons, native replay sample verification, input validation and stale-input pause.
+Implemented: Cairn (photo cut-out stacking game with calm/go modes, levels, firefly and gust events, opt-in 15 Hz SSVEP flicker with a stimulus log, recorded-session test bench and OpenBCI sample conversion), responsive React shell, Phaser renderer, fixed-step rolling simulation with falling and round-ending losses, endless rounds with elapsed and time-in-center scores, Python WebSocket stream, Cyton BrainFlow replay and direct-live adapters, relative-alpha feature, explicit robust 60-second baseline, guided session UI, recording overview/playhead, recent waveform and feature charts, measured sample delivery rate, per-channel rejection reasons, native replay sample verification, input validation and stale-input pause.
 
 Still to verify: physical Cyton connection, intentional EEG control, and feature/channel choices on club participants. Planned: stronger artifact assessment, session recording, formal input-mode switching, and model evaluation. The current quality gate is an experimental amplitude/flatness check; the synthetic baseline is bypassed and labeled.
 

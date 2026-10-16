@@ -1,4 +1,4 @@
-export type GameId = "garden" | "balance";
+export type GameId = "garden" | "cairn" | "balance";
 
 export type GameInfo = {
   id: GameId;
@@ -16,6 +16,13 @@ export const GAMES: GameInfo[] = [
     blurb: "Watch your signal bring a plant to life.",
     cta: "Grow a garden",
     resume: "Return to garden",
+  },
+  {
+    id: "cairn",
+    title: "Cairn",
+    blurb: "Stay focused while a hand stacks real stones on a balancing plank.",
+    cta: "Stack a cairn",
+    resume: "Return to Cairn",
   },
   {
     id: "balance",

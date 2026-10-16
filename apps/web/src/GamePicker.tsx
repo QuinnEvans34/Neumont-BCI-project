@@ -1,5 +1,6 @@
 import GardenScene from "./GardenScene";
 import { GAMES, type GameId } from "./games/catalog";
+import cairnCard from "./assets/cairn/card.jpg";
 
 export type GameStatus = { inProgress: boolean; detail: string };
 
@@ -18,6 +19,11 @@ function GardenIllustration() {
       />
     </div>
   );
+}
+
+function CairnIllustration() {
+  // Composed from the game's own photo cut-outs by tools/cairn_assets.
+  return <img className="game-art-photo" src={cairnCard} alt="" />;
 }
 
 function BeamIllustration() {
@@ -61,8 +67,8 @@ export default function GamePicker({
         <p className="eyebrow">03 / CHOOSE A GAME</p>
         <h1>Pick how your signal plays.</h1>
         <p>
-          Both games use the same stream and the same baseline. Switching games
-          pauses the one you leave; nothing reconnects or recalibrates.
+          Every game uses the same stream and the same baseline. Switching
+          games pauses the one you leave; nothing reconnects or recalibrates.
         </p>
       </section>
       {!ready && (
@@ -87,6 +93,8 @@ export default function GamePicker({
               <div className="game-art">
                 {g.id === "garden" ? (
                   <GardenIllustration />
+                ) : g.id === "cairn" ? (
+                  <CairnIllustration />
                 ) : (
                   <BeamIllustration />
                 )}
