@@ -1,6 +1,6 @@
 export type InputFrame = {
   version: 1; sequence: number; timestamp_ms: number;
-  source: 'synthetic' | 'live' | 'replay';
+  source: 'synthetic' | 'live' | 'replay' | 'simulated_eeg';
   score: number; quality: 'good' | 'poor'; calibrated: boolean;
 };
 export function parseFrame(value: unknown): InputFrame | null {
@@ -8,7 +8,7 @@ export function parseFrame(value: unknown): InputFrame | null {
   const f = value as Record<string, unknown>;
   if (f.version !== 1 || !Number.isInteger(f.sequence) || (f.sequence as number) < 0 ||
       typeof f.timestamp_ms !== 'number' || !Number.isFinite(f.timestamp_ms) ||
-      !['synthetic', 'live', 'replay'].includes(String(f.source)) ||
+      !['synthetic', 'live', 'replay', 'simulated_eeg'].includes(String(f.source)) ||
       typeof f.score !== 'number' || !Number.isFinite(f.score) || f.score < 0 || f.score > 1 ||
       !['good', 'poor'].includes(String(f.quality)) || typeof f.calibrated !== 'boolean') return null;
   return f as InputFrame;

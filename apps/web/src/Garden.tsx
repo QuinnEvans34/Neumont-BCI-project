@@ -45,6 +45,8 @@ export type GardenProps = {
   sourceLabel: string;
   relation: Relation | null;
   prefs: GardenPrefs;
+  /** An experiment is running: no garden sound or breathing guide. */
+  muted?: boolean;
   setPrefs: (patch: Partial<GardenPrefs>) => void;
   onPause: () => void;
   onResume: () => void;
@@ -229,7 +231,7 @@ export default function Garden(props: GardenProps) {
       // In the settle-in the ring appears with "Follow the light"; in play it is optional.
       const guideTarget =
         (c.intro && next.intro >= INTRO_STEPS[2].at - 1) ||
-        (c.live && c.prefs.guide)
+        (c.live && c.prefs.guide && !c.muted)
           ? 1
           : 0;
       let guide =
@@ -258,7 +260,7 @@ export default function Garden(props: GardenProps) {
       if (now - lastAudio > 100) {
         lastAudio = now;
         audio.update({
-          on: c.prefs.sound && awake,
+          on: c.prefs.sound && awake && !c.muted,
           response: c.live ? model.current.response : 0.5,
           breath: breathAt(model.current.time).level,
           volume: c.prefs.volume,

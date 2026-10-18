@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import Game from "./Game";
 import Garden from "./Garden";
 import GamePicker from "./GamePicker";
-import { gameInfo, type GameId } from "./games/catalog";
+import { gameInfo, isExperiment, type GameId } from "./games/catalog";
+import BilateralExperiment from "./experiments/BilateralExperiment";
+import SsvepExperiment from "./experiments/SsvepExperiment";
 import { initialWatch, observeReference, canTick } from "./games/lifecycle";
 import { baselineRelation } from "./gardenSimulation";
 import { usePrefs } from "./gardenPrefs";
@@ -275,6 +277,15 @@ export default function App() {
   }
   // From the chooser: continue an existing game paused, or start a new one.
   function openGame(id: GameId) {
+    if (isExperiment(id)) {
+      // Opening an experiment shows its setup only: nothing starts or reconnects.
+      setRunning(false);
+      setGardenRunning(false);
+      setGame(id);
+      setPage("play");
+      window.scrollTo(0, 0);
+      return;
+    }
     const existing =
       id === "garden" ? gardenStarted && gardenSame : hasRound && sameSession;
     if (existing) {
@@ -298,6 +309,7 @@ export default function App() {
   }
   const readiness =
     source === "synthetic" ||
+    source === "simulated_eeg" ||
     (source === "live" ? Boolean(port) : Boolean(recording && preview));
   return (
     <main>
@@ -334,8 +346,10 @@ export default function App() {
               : p === "calibrate"
                 ? "Calibrate"
                 : p === "choose"
-                  ? "Choose a game"
-                  : "Play"}
+                  ? "Choose"
+                  : isExperiment(game)
+                    ? "Experiment"
+                    : "Play"}
           </button>
         ))}
       </nav>
@@ -369,7 +383,12 @@ export default function App() {
               {
                 id: "synthetic",
                 title: "Simulation",
-                text: "Generated input for testing. No headset or baseline required.",
+                text: "Generated game score for testing. No headset or baseline required.",
+              },
+              {
+                id: "simulated_eeg",
+                title: "Simulated EEG",
+                text: "Generated raw 8-channel EEG for testing experiments and recordings. No headset.",
               },
             ].map((o) => (
               <button
@@ -387,7 +406,9 @@ export default function App() {
                     ? "HARDWARE"
                     : o.id === "replay"
                       ? "LOCAL FILE"
-                      : "DEMO"}
+                      : o.id === "simulated_eeg"
+                        ? "TEST SIGNAL"
+                        : "DEMO"}
                 </small>
                 <h2>{o.title}</h2>
                 <p>{o.text}</p>
@@ -474,6 +495,16 @@ export default function App() {
                 headset connection.
               </p>
             )}
+            {source === "simulated_eeg" && (
+              <p>
+                Simulated EEG generates Cyton-shaped 250 Hz samples (noise, a 10
+                Hz rhythm, and optional test responses you control on the
+                experiment pages). It flows through the same acquisition,
+                baseline and recording code as a headset, and is labeled
+                "Simulated EEG — no headset" everywhere. It is for pipeline
+                testing, never evidence about a person.
+              </p>
+            )}
             <div className="actions">
               <button
                 disabled={busy || !readiness}
@@ -481,7 +512,7 @@ export default function App() {
               >
                 {busy
                   ? "Opening input…"
-                  : source === "synthetic"
+                  : source === "synthetic" || source === "simulated_eeg"
                     ? "Start simulation"
                     : source === "replay"
                       ? "Start playback & inspect"
@@ -493,6 +524,14 @@ export default function App() {
                   onClick={() => navigate("calibrate")}
                 >
                   Return to current session
+                </button>
+              )}
+              {t?.session_id && (
+                <button
+                  className="secondary"
+                  onClick={() => navigate("choose")}
+                >
+                  Choose an experience
                 </button>
               )}
             </div>
@@ -612,9 +651,9 @@ export default function App() {
           ready={usable && !busy}
           reason={
             !t?.session_id
-              ? "No input session yet. Connect a source first."
+              ? "No input session yet. Connect a source first; experiment setups can still be opened."
               : t.source !== "synthetic" && !t.calibrated
-                ? "Build a baseline on Calibrate before starting a game."
+                ? "Games need a baseline: build one on Calibrate. Experiments do not."
                 : streamMessage(t)
           }
           status={{
@@ -631,10 +670,42 @@ export default function App() {
                     : "In progress · paused"
                   : "",
             },
+            bilateral: {
+              inProgress: false,
+              detail:
+                t?.experiment?.state === "running" &&
+                t.experiment.kind === "bilateral"
+                  ? "A bilateral session is recording"
+                  : "",
+            },
+            ssvep: {
+              inProgress: false,
+              detail:
+                t?.experiment?.state === "running" &&
+                t.experiment.kind === "ssvep"
+                  ? "An SSVEP session is recording"
+                  : "",
+            },
           }}
           onOpen={openGame}
           onConnect={() => navigate("setup")}
           onCalibrate={() => navigate("calibrate")}
+        />
+      )}
+      {page === "play" && game === "bilateral" && (
+        <BilateralExperiment
+          telemetry={t}
+          fresh={fresh}
+          connected={connected}
+          onExit={() => navigate("choose")}
+        />
+      )}
+      {page === "play" && game === "ssvep" && (
+        <SsvepExperiment
+          telemetry={t}
+          fresh={fresh}
+          connected={connected}
+          onExit={() => navigate("choose")}
         />
       )}
       <div hidden={page !== "play" || game !== "garden"}>
@@ -667,6 +738,7 @@ export default function App() {
           sourceLabel={sourceName(t?.source)}
           sourceId={t?.source ?? "unknown"}
           prefs={gardenPrefs}
+          muted={t?.experiment?.state === "running"}
           setPrefs={setGardenPrefs}
           relation={
             usable
