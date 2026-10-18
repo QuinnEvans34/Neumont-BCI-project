@@ -10,6 +10,8 @@ AI & Data Club's ten-week showcase project: a virtual ball-and-beam neurofeedbac
 
 **Glowing Garden (first version implemented):** a second game where a central plant glows with your signal and grows with sustained above-baseline input. Both games share one connection, one session and one baseline through a new game chooser. See the [specification](docs/garden/spec.md), [implementation handoff](docs/garden/claude-handoff.md) and [verification notes](docs/garden/verification.md).
 
+**Experiments (prototype, implemented October 14):** *Bilateral Visual Stimulation* (alternating left/right cues with raw-EEG observation and recording) and *SSVEP Cards* (three cards at 10/12/15 Hz with a real CCA decoder that selects or abstains). Both appear in the shared chooser, bypass the alpha baseline, and save full-rate EEG, events, frame logs and predictions locally. Verified only with Simulated EEG so far; see the [experiment verification notes](docs/experiments/verification.md) for what is and is not verified, and next-class operating steps.
+
 **Immediate weekend goal:** [Recorded EEG → calibration → game, plus tomorrow’s hardware check](docs/replay-and-connection.md). No headset needed for replay. See also the [live-demo plan](docs/weekend-live-demo.md).
 
 **Primary implementation plan:** [Complete build blueprint](docs/blueprint.md), with [exact source/reuse matrix](docs/blueprint/reuse-matrix.md) and [34 estimated task cards](docs/blueprint/work-breakdown.md).
@@ -21,6 +23,7 @@ AI & Data Club's ten-week showcase project: a virtual ball-and-beam neurofeedbac
 - [Architecture and input contract](docs/architecture.md)
 - [Research and reusable software](docs/research.md)
 - [P300/SSVEP research: datasets, activities, apps and hexapod control](docs/p300-ssvep-research.md)
+- [Bilateral and SSVEP experiments: spec, plan and Claude prompt](docs/experiments/spec.md) · [verification and operating notes](docs/experiments/verification.md)
 - [Starter validation report](docs/validation.md)
 - [Decisions and open questions](docs/decisions.md)
 - [Contributing](CONTRIBUTING.md)
@@ -34,7 +37,7 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. Follow Connect → Calibrate → Choose a game → Play. Run the backend below, then choose a recorded session or explicitly labeled simulation to develop without hardware.
+Open http://127.0.0.1:5173. Follow Connect → Calibrate → Choose → Play (experiments can skip Calibrate). Run the backend below, then choose a recorded session or an explicitly labeled simulation to develop without hardware: **Simulation** produces a game score only; **Simulated EEG** produces raw 8-channel samples for experiments and recordings (pipeline testing, never evidence about a person).
 
 ## Run the EEG backend
 
@@ -49,7 +52,7 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 
 Run the frontend in a second terminal. On **Connect**, choose a recording and click **Start playback & inspect**, or select the Cyton dongle port and click **Connect & inspect**. Close the OpenBCI GUI board session before connecting directly.
 
-On **Calibrate**, inspect the waveform, recording playhead, delivery rate and channel gates. Click **Begin baseline** to collect 30 accepted, non-overlapping two-second windows. Then click **Choose a game** and pick **Glowing Garden** or **Balance Beam**: acquisition keeps running with the same session, file position and baseline, and switching games never reconnects or recalibrates. Simulation bypasses EEG calibration and is explicitly labeled.
+On **Calibrate**, inspect the waveform, recording playhead, delivery rate and channel gates. Click **Begin baseline** to collect 30 accepted, non-overlapping two-second windows. Then click **Choose a game** and pick **Glowing Garden** or **Balance Beam** (or an experiment): acquisition keeps running with the same session, file position and baseline, and switching games never reconnects or recalibrates. Simulation bypasses EEG calibration and is explicitly labeled.
 
 **Glowing Garden.** The plant's glow, leaf opening, sun and fireflies follow the published score immediately (with extra visual smoothing). Scores above the 50% baseline score earn lasting growth through Sprout → Growing → Blooming; at the default pace that takes about 90 s at score 1 or 180 s at 0.75. Lower scores dim the light but never remove earned leaves. Pause, Change game, a hidden tab, stale or rejected input all freeze the garden until you click Resume; a new session or a recalibration (including one started by another viewer) resets both games.
 
@@ -59,6 +62,8 @@ On **Calibrate**, inspect the waveform, recording playhead, delivery rate and ch
 - *Facilitator panel* (bottom of the garden page): growth pace (full-signal seconds to bloom, 30–600 s, presets), live stats for the current plant, a suggested pace computed from logged EEG sessions for a target bloom time, per-plant notes, and a session log with CSV download. Preferences and the log stay in this browser only; no EEG is stored.
 
 Art review without waiting for input: with `npm run dev`, open http://127.0.0.1:5173/?garden-preview (sliders), `?garden-preview&demo` (time-lapse) or `?garden-preview&demo&sound`. The preview exists only in development builds.
+
+**Experiments.** Open **Bilateral Visual Stimulation** or **SSVEP Cards** from Choose; opening never starts stimulation. Each page has setup (participant pseudonym, electrode map, settings), a notice, an explicit Start, a persistent Stop and Escape-to-stop. SSVEP also needs a 5-second display check (steady 60 or 120 Hz) and at least two O/PO channels; it runs threshold setup → freeze → evaluation and reports correct, incorrect, abstained, invalid and neutral-false-activation counts separately. Recordings are written to `data/experiments/<uuid>/` (ignored by Git; override with `BCI_EXPERIMENTS_DIR`) and can be exported as a zip. Optical timing is unverified (no photodiode).
 
 **Balance Beam.**
 
