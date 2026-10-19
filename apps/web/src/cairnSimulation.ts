@@ -6,7 +6,7 @@
 // crossing the scene, a gust against the tower) grow commoner and stronger.
 
 export type CairnMode = "calm" | "go";
-export type HandPhase = "wait" | "approach" | "release" | "cheer" | "exit";
+export type HandPhase = "wait" | "approach" | "release" | "exit";
 export type FallCause = "sway" | "drop";
 export type EventKind = "bug" | "gust";
 
@@ -59,8 +59,6 @@ export const CALM_INTERVAL = 3; // s per stone at full steadiness
 export const GO_INTERVAL = 6; // s per stone, unconditional
 export const RELEASE_SECONDS = 0.35;
 export const EXIT_SECONDS = 0.75;
-/** After every TIER_STONES-th stone the hand gives a thumbs up before leaving. */
-export const CHEER_SECONDS = 1.2;
 export const CALM_APPROACH = CALM_INTERVAL - RELEASE_SECONDS - EXIT_SECONDS;
 export const GO_APPROACH = 2.5;
 export const GO_WAIT = GO_INTERVAL - GO_APPROACH - RELEASE_SECONDS - EXIT_SECONDS;
@@ -232,27 +230,14 @@ function hand(s: CairnState, h: number): CairnState {
     }
     case "release":
       return t >= RELEASE_SECONDS
-        ? { ...s, phase: cheers(s) ? "cheer" : "exit", phaseTime: 0 }
-        : { ...s, phaseTime: t };
-    case "cheer":
-      return t >= CHEER_SECONDS
         ? { ...s, phase: "exit", phaseTime: 0 }
         : { ...s, phaseTime: t };
     case "exit":
       return t >= EXIT_SECONDS
-        ? {
-            ...s,
-            phase: s.mode === "go" ? "wait" : "approach",
-            // Go mode keeps its fixed schedule: the thumbs up comes out of the wait.
-            phaseTime: s.mode === "go" && cheers(s) ? CHEER_SECONDS : 0,
-            approach: 0,
-          }
+        ? { ...s, phase: s.mode === "go" ? "wait" : "approach", phaseTime: 0, approach: 0 }
         : { ...s, phaseTime: t };
   }
 }
-
-/** The stone just placed completes a tier of five: the hand gives a thumbs up. */
-const cheers = (s: CairnState) => s.stones > 0 && s.stones % TIER_STONES === 0;
 
 /** How far events have ramped up, 0..1, from the stone count. */
 export const eventIntensity = (stones: number) => clamp01(stones / EVENT_FULL_STONES);

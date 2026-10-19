@@ -3,6 +3,7 @@ import Game from "./Game";
 import Garden from "./Garden";
 import Cairn from "./Cairn";
 import GamePicker from "./GamePicker";
+import GateSlider from "./GateSlider";
 import { gameInfo, type GameId } from "./games/catalog";
 import { initialWatch, observeReference, canTick } from "./games/lifecycle";
 import { baselineRelation } from "./gardenSimulation";
@@ -254,6 +255,29 @@ export default function App() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  }
+  // Moving the gate keeps the session and baseline; games are not interrupted.
+  async function setGate(uv: number) {
+    setError("");
+    try {
+      const r = await fetch(`${API}/api/gate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ max_ptp_uv: uv }),
+      });
+      const result = await r.json();
+      if (!r.ok)
+        throw Error(
+          typeof result.detail === "string"
+            ? result.detail
+            : "Gate value rejected",
+        );
+      setTelemetry(result);
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      return false;
     }
   }
   function start() {
@@ -605,6 +629,13 @@ export default function App() {
                       Last rejected window: {t.last_rejection}
                     </p>
                   )}
+                  {t?.gate_max_ptp_uv != null && (
+                    <GateSlider
+                      telemetry={t}
+                      disabled={busy || t.calibrating}
+                      onSet={setGate}
+                    />
+                  )}
                   {t?.calibrated && (
                     <dl>
                       <dt>Typical relative alpha</dt>
@@ -615,6 +646,10 @@ export default function App() {
                       <dd>
                         {t.baseline_start_sample?.toLocaleString()} →{" "}
                         {t.baseline_end_sample?.toLocaleString()}
+                      </dd>
+                      <dt>Baseline acceptance gate</dt>
+                      <dd>
+                        {t.baseline_gate_uv?.toLocaleString()} µV peak-to-peak
                       </dd>
                     </dl>
                   )}

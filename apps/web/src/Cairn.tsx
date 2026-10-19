@@ -72,7 +72,6 @@ function swayLabel(view: CairnView) {
 /** What the hand is doing, and any passing bug or gust, in words, for the stage badge. */
 function handNote(view: CairnView, live: boolean) {
   if (view.fallen || !live) return "";
-  if (view.phase === "cheer") return `thumbs up · level ${tierOf(view.stones) + 1}`;
   const event =
     view.event?.kind === "gust" ? " · a gust!" : view.event?.kind === "bug" ? " · a firefly" : "";
   if (view.mode === "go") {
@@ -157,13 +156,11 @@ export default function Cairn(props: CairnProps) {
         ? "The cairn fell."
         : "Timber!"
       : props.live
-        ? view.phase === "cheer"
-          ? "Thumbs up!"
-          : view.event?.kind === "gust"
-            ? "Gust! Hold it still."
-            : swayLabel(view) === "Steady"
-              ? "Steady hands."
-              : "Hold it still."
+        ? view.event?.kind === "gust"
+          ? "Gust! Hold it still."
+          : swayLabel(view) === "Steady"
+            ? "Steady hands."
+            : "Hold it still."
         : "Cairn paused.";
   const note = handNote(view, props.live);
   // The sway gauge runs up to the current topple limit, which shrinks every five stones and in gusts.

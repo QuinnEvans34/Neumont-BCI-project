@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from backend.main import Service, RATE
+from backend.signal import DEFAULT_MAX_PTP_UV
 from backend.recordings import inspect_recording
 
 TICK_SECONDS = 0.25  # the worker's publish interval
@@ -24,9 +25,10 @@ class _Board:
         pass
 
 
-def trace(path, calibrate_at=5.0):
+def trace(path, calibrate_at=5.0, gate_uv=DEFAULT_MAX_PTP_UV):
     data, info = inspect_recording(Path(path))
     s = Service()
+    s.set_gate(gate_uv)
     s.source = 'replay'
     s.session_id = 'trace'
     s.file_data, s.recording = data, info
@@ -68,8 +70,9 @@ if __name__ == '__main__':
     p.add_argument('recording', type=Path)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--calibrate-at', type=float, default=5.0, help='seconds of signal before Begin baseline')
+    p.add_argument('--gate', type=float, default=DEFAULT_MAX_PTP_UV, help='peak-to-peak acceptance gate in µV (Calibrate slider)')
     args = p.parse_args()
-    result = trace(args.recording, args.calibrate_at)
+    result = trace(args.recording, args.calibrate_at, args.gate)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, separators=(',', ':')) + '\n')
     scores = result['score']

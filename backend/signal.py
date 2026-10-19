@@ -2,11 +2,17 @@
 import numpy as np
 
 
-def analyze(samples, rate):
+# Provisional per-channel acceptance gates. The peak-to-peak ceiling is the
+# operator-adjustable one; the flat floor stays fixed.
+FLAT_SD_UV = .5
+DEFAULT_MAX_PTP_UV = 500.0
+
+
+def analyze(samples, rate, max_ptp_uv=DEFAULT_MAX_PTP_UV):
     x = np.asarray(samples, dtype=float)
     channels = []
     if x.shape[1] < rate * 2:
-        return None, [dict(channel=i+1, included=False, reason='Waiting for 2 seconds', std_uv=None) for i in range(x.shape[0])]
+        return None, [dict(channel=i+1, included=False, reason='Waiting for 2 seconds', std_uv=None, ptp_uv=None) for i in range(x.shape[0])]
     x = x[:, -rate * 2:]
     included = []
     for i, row in enumerate(x):
@@ -14,10 +20,10 @@ def analyze(samples, rate):
         std = float(np.std(row)) if finite else None
         span = float(np.ptp(row)) if finite else None
         reason = 'Included' if finite else 'Non-finite samples'
-        if finite and std <= .5: reason = 'Flat signal (≤0.5 µV SD)'
-        elif finite and span >= 500: reason = 'Amplitude exceeded 500 µV peak-to-peak'
+        if finite and std <= FLAT_SD_UV: reason = f'Flat signal (≤{FLAT_SD_UV:g} µV SD)'
+        elif finite and span >= max_ptp_uv: reason = f'Amplitude exceeded {max_ptp_uv:g} µV peak-to-peak'
         good = reason == 'Included'
-        channels.append(dict(channel=i+1, included=good, reason=reason, std_uv=std))
+        channels.append(dict(channel=i+1, included=good, reason=reason, std_uv=std, ptp_uv=span))
         if good: included.append(i)
     if not included:
         return None, channels
@@ -29,8 +35,8 @@ def analyze(samples, rate):
     return float(np.median(alpha / np.maximum(total, 1e-12))), channels
 
 
-def feature(samples, rate):
-    return analyze(samples, rate)[0]
+def feature(samples, rate, max_ptp_uv=DEFAULT_MAX_PTP_UV):
+    return analyze(samples, rate, max_ptp_uv)[0]
 
 
 class Calibration:

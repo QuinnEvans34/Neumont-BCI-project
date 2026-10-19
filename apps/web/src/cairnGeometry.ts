@@ -14,11 +14,14 @@ export type SpriteInfo = {
   bottom: (number | null)[];
 };
 
+/** A photo image: its world size, drawn at `scale` because the image ships finer. */
+export type PhotoInfo = { w: number; h: number; scale?: number };
+
 export type CairnManifest = {
   wood: SpriteInfo;
   pivot: { tip: [number, number]; base: number; left: number; right: number };
-  /** World size of the photo; the image ships finer and is drawn at `scale`. */
-  background: { w: number; h: number; scale?: number };
+  /** The main photo, and views shot higher up from the same spot, lowest first. */
+  background: PhotoInfo & { above?: (PhotoInfo & { name: string })[] };
   hand: { w: number; h: number; tips: Record<string, [number, number][]> };
 } & Record<`rock${number}`, SpriteInfo>;
 
@@ -155,4 +158,88 @@ export class Stack {
     this.stones.push(stone);
     return stone;
   }
+}
+
+/** A photo print on the scrapbook page, in photo world units (before the stage's scene scale). */
+export type Print = {
+  /** Texture name. */
+  name: string;
+  /** Centre, photo size (without the white margin) and tilt in radians. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotation: number;
+  /** Texture pixels to world units. */
+  scale: number;
+  flip: boolean;
+};
+
+/** White margin around each print. */
+export const PRINT_MARGIN = 30;
+/** Prints in the column: the main photo, the higher views, then the top one again, mirrored. */
+export const COLUMN_PRINTS = 4;
+/** Higher views print this much larger than the main photo, so their tilt never uncovers its width. */
+const ABOVE_SCALE = 1.05;
+/** How far each higher print's margin reaches down over the photo below, hiding that print's top margin. */
+const OVERLAP = 24;
+const TILTS = [-0.018, 0.022, -0.015];
+const SHIFTS = [10, -14, 8];
+
+/** Height of a print's top (side -1) or bottom (side 1) edge at x, grown by `margin`. */
+export function edgeY(p: Print, side: 1 | -1, x: number, margin = 0) {
+  const d = side * (p.h / 2 + margin);
+  const c = Math.cos(p.rotation);
+  const s = Math.sin(p.rotation);
+  return p.y + d * c + (s * (x - p.x + d * s)) / c;
+}
+
+/**
+ * The main photo with the higher views stacked above it like a scrapbook page: each one
+ * a little tilted and laid over the top of the print below, since they do not line up
+ * exactly. Higher prints lie on top. Every point from `top` down to the main photo's
+ * foot, across the main photo's width, shows a photo or a print's margin, never the page.
+ */
+export function printColumn(bg: CairnManifest["background"]) {
+  const main: Print = {
+    name: "background",
+    x: bg.w / 2,
+    y: bg.h / 2,
+    w: bg.w,
+    h: bg.h,
+    rotation: 0,
+    scale: bg.scale ?? 1,
+    flip: false,
+  };
+  const prints = [main];
+  const above = bg.above ?? [];
+  for (let i = 0; above.length && i < COLUMN_PRINTS - 1; i++) {
+    const src = above[Math.min(i, above.length - 1)];
+    const repeat = i - (above.length - 1);
+    const k = (bg.w * ABOVE_SCALE) / src.w;
+    const p: Print = {
+      name: src.name,
+      x: bg.w / 2 + SHIFTS[i % SHIFTS.length],
+      y: 0,
+      w: src.w * k,
+      h: src.h * k,
+      rotation: TILTS[i % TILTS.length],
+      scale: (src.scale ?? 1) * k,
+      flip: repeat > 0 && repeat % 2 === 1,
+    };
+    // Low enough that its margin covers the lower print's top margin across the width.
+    const below = prints[prints.length - 1];
+    p.y = Math.max(
+      ...[0, bg.w].map((x) => edgeY(below, -1, x) + OVERLAP - (edgeY(p, 1, x, PRINT_MARGIN) - p.y)),
+    );
+    prints.push(p);
+  }
+  const last = prints[prints.length - 1];
+  return {
+    prints,
+    left: 0,
+    right: bg.w,
+    top: Math.max(edgeY(last, -1, 0), edgeY(last, -1, bg.w)),
+    bottom: bg.h,
+  };
 }

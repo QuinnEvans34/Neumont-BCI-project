@@ -1,8 +1,8 @@
 # Cairn
 
-A focus game in a photo-scrapbook style. A plank balances on the tip of a pointed rock; a hand reaches in from above and stacks stones on it. Steady signal keeps the tower still. Distraction makes it sway, and a long sway topples it. Every stone is a point. Every fifth stone the hand gives a thumbs up and the cairn gets touchier, and fireflies and gusts of wind come by more often, and bigger, as it grows.
+A focus game in a photo-scrapbook style. A plank balances on the tip of a pointed rock; a hand reaches in from above and stacks stones on it. Steady signal keeps the tower still. Distraction makes it sway, and a long sway topples it. Every stone is a point. Every fifth stone the cairn gets touchier, and fireflies and gusts of wind come by more often, and bigger, as it grows.
 
-All art is the club's own photos (taken October 14, 2026), cut out with a white paper margin so each moving piece looks scissored from a print. The background photo is pasted onto a scrapbook page; a tall enough cairn climbs off the photo onto the page.
+All art is the club's own photos (taken October 14, 2026), cut out with a white paper margin so each moving piece looks scissored from a print. The background photo is pasted onto a scrapbook page with two views shot higher up taped above it, so a tall cairn climbs from the boulder into the branches and then the sky. The camera never shows the bare page: it stops pulling back once the view is as wide as the photos, and a tall cairn's base drops out of view instead.
 
 ## How to play
 
@@ -14,7 +14,7 @@ Connect → Calibrate → Choose a game → **Cairn**. Pick a mode, then **Start
 | **Go** | Every 6 s, ready or not (2.4 s off-page, 2.5 s descent, release, exit). The badge counts down to the next stone. | A stone lands while the tower is swaying, or the sway grows past the fall angle. |
 
 - The round ends when the cairn falls. The score, in paper cut-out digits, is the number of stones placed; the stone that knocks a tower over does not count.
-- **Levels.** After every fifth stone the hand steps aside and gives a thumbs up (1.2 s; in Go mode it comes out of the wait, so the 6 s schedule holds), and the tilt that topples the cairn shrinks by 30%: 17.2° for stones 0–4, 12.0° for 5–9, 8.4° for 10–14, 5.9° for 15–19, and so on. Go mode's drop limit shrinks the same way.
+- **Levels.** After every fifth stone the tilt that topples the cairn shrinks by 30%, with no pause or celebration: 17.2° for stones 0–4, 12.0° for 5–9, 8.4° for 10–14, 5.9° for 15–19, and so on. Go mode's drop limit shrinks the same way.
 - **Events.** None in the first 14–22 s; then a firefly or a gust 14–34 s after the last one ends, tightening to 4–10 s by 25 stones. Each has a strength from 0 to 1 that grows with the stone count:
   - A **firefly** crosses the view, scurrying along the boulder or (more often when big) flying through the air. Small ones are about 3% of the stage's width long and dash past in under 3 s; big ones are about 10%, glow brighter and take up to 7 s. Sizes are relative to the view, so a big firefly stays big on screen as the camera pulls back for a tall cairn. A firefly changes nothing in the physics; it is a distraction, and its lantern can be an SSVEP stimulus (below).
   - A **gust** pushes the tower to one side for 2–5 s, with wind streaks (and leaves when strong), and lowers both topple limits by up to 35% at its peak. A steady player rides out even a big late gust; a distracted one does not.
@@ -101,7 +101,7 @@ With `npm run dev`, open http://127.0.0.1:5173/?cairn-preview to play that trace
 
 ### 3. Automated tests
 
-`tests/cairn.test.ts` covers the rules (3 s calm cadence, the hand holding still while swaying, the 6 s go schedule kept through a thumbs up, drop collapses, distraction toppling both modes, unrest, determinism, bounded time steps), levels and the thumbs up every fifth stone, events growing commoner and stronger, gusts pushing and lowering the limit, bugs leaving the physics alone, stacking geometry (including the smaller plank), the score store and flicker log, and plays the recorded OpenBCI meditation trace through both modes. `backend/test_cairn_tools.py` covers GUI-text conversion and the trace tool's baseline and publish rate.
+`tests/cairn.test.ts` covers the rules (3 s calm cadence, the hand holding still while swaying, the 6 s go schedule kept across levels, drop collapses, distraction toppling both modes, unrest, determinism, bounded time steps), levels (with no celebration at a new one), events growing commoner and stronger, gusts pushing and lowering the limit, bugs leaving the physics alone, stacking geometry (including the smaller plank), the taped photo column covering everything the camera may show, the score store and flicker log, and plays the recorded OpenBCI meditation trace through both modes. `backend/test_cairn_tools.py` covers GUI-text conversion and the trace tool's baseline and publish rate.
 
 Only the trace from OpenBCI's public sample recording is committed. Keep traces derived from club members' EEG local (`data/` is ignored), per CONTRIBUTING.
 
@@ -119,32 +119,32 @@ python tools/cairn_assets/build_cairn_assets.py --digits    # only the score dig
 - Compose (needs only NumPy, Pillow and OpenCV): each stone is rotated onto its most level *stable* face (a convex-hull edge with the centroid above it); the plank is deskewed along its principal axis; the four hand frames are registered on the forearm (ECC) so only the fingers move; everything is scaled to world units (half the photo resolution) and given a faceted, slightly irregular white paper margin.
 - The pivot rock stays part of the background photo, but `pivot.webp` overlays it at full photo resolution, lightly sharpened, with a feathered edge that blends into the identical pixels beneath. The background ships at 0.75 of the photo's resolution (finer than world units) and is drawn at `background.scale`. The stage renders at the screen's pixel density (up to 2×) so that detail reaches the display.
 - The stage draws the photo, its pivot rock and the plank at `SCENE` (0.85) of world size, so the hand and stones, which keep their size, read at a believable scale against them; drawing the photo smaller also sharpens it.
-- **Thumbs up.** Put a photo `hand_thumbs_up.JPG` in the photo folder (same spot, framing and arm position as the other hand photos, thumb raised) and run `--segment` then compose: it is registered on the forearm like the other frames. Until then the tool makes a stand-in from `hand_closed` (a fist with the thumb pointing down) by turning that thumb up behind the knuckles.
+- **Higher views.** `BG_MID.JPG` and `BG_TOP.JPG` were shot from the same spot, tilted up, but do not line up with `main_bg.JPG` (feature matching finds no overlap), so they become separate prints, `background_mid.jpg` and `background_top.jpg`, at the background's resolution; the mid view's lower third is ground level again and is trimmed. `printColumn` in `cairnGeometry.ts` stacks them above the main photo, each 5% wider than it, tilted about 1° and laid over the top of the print below with tape across the seam; the top view repeats, mirrored, for very tall cairns. The stage's camera stays inside that column.
 - **Score digits** are cut from `images/paper_numbers.jpg` (a cream sheet with 1–5 above 6–9, 0) by colour distance from the backdrop: `digit0.webp`–`digit9.webp`, rendered by `PaperNumber.tsx`. The sheet's 0 is a solid orange blob, so the tool recolours it cyan (keeping the paper's crumples) and scissors a faceted hole out of it, following its own outline. The fireflies, wind streaks and leaves are drawn on canvas at load, in the same cut-paper style.
 - `manifest.json` records sprite sizes, per-column top/bottom object profiles used for stacking, the pivot tip, the boulder's top edge (for bouncing stones), fingertip positions and the arm direction. `card.jpg` is the game-picker art.
 
 | Photo | Becomes |
 | --- | --- |
 | `main_bg.JPG` | Background, plus a full-resolution overlay of the pointed rock whose tip is the pivot |
+| `BG_MID.JPG`, `BG_TOP.JPG` | Higher views taped above the background (`background_mid`, `background_top`) |
 | `wood_focus.JPG` | The plank |
 | `stacking_rocks1.JPG`, `stacking_rocks2.JPG` | Nine stones (`rock1`–`rock9`) |
 | `hand_open_big`, `hand_open_small`, `hand_opening`, `hand_closed` | Hand frames, widest pinch to closed |
-| `hand_thumbs_up` (optional) | The thumbs-up frame; made from `hand_closed` when absent |
 | `images/paper_numbers.jpg` | Score digits `digit0`–`digit9` |
 
 To add a stone, add its photo box to `OBJECTS` and its name to `STONES` in the tool; the game picks up every `rock*.webp` and the manifest's stone count automatically.
 
 ### Hand animation
 
-The hand arrives along its own forearm, carrying the stone behind its fingers in the pinch that fits: `hand_open_small` for narrow stones, `hand_open_big` for wide ones (the hand shares the stones' 0.8 scale). It tilts with the tower in the last part of its descent, sets the stone down, closes through the remaining frames while lifting slightly, and leaves the way it came. After every fifth stone it first steps aside to beside the top of the cairn and pumps a thumbs up twice, then leaves still showing it. After a fall it withdraws from wherever it was.
+The hand arrives along its own forearm, carrying the stone behind its fingers in the pinch that fits: `hand_open_small` for narrow stones, `hand_open_big` for wide ones (the hand shares the stones' 0.8 scale). It tilts with the tower in the last part of its descent, sets the stone down, closes through the remaining frames while lifting slightly, and leaves the way it came. After a fall it withdraws from wherever it was.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `apps/web/src/cairnSimulation.ts` | Pure model: focus, pendulum, wind, unrest, sway, levels, bugs and gusts, hand phases (with the thumbs up) for both modes, falls |
-| `apps/web/src/cairnGeometry.ts` | Stacking on measured contours, stone sequence, plank contact point |
-| `apps/web/src/CairnStage.tsx` | Phaser stage: scrapbook page, taped photo, swaying tower with slight flex, hand and thumbs up, fireflies (and their SSVEP flicker), gusts, collapse and bounce, framing camera; sleeps while hidden |
+| `apps/web/src/cairnSimulation.ts` | Pure model: focus, pendulum, wind, unrest, sway, levels, bugs and gusts, hand phases for both modes, falls |
+| `apps/web/src/cairnGeometry.ts` | Stacking on measured contours, stone sequence, plank contact point, the column of photo prints |
+| `apps/web/src/CairnStage.tsx` | Phaser stage: scrapbook page, taped photo column, swaying tower with slight flex, hand, fireflies (and their SSVEP flicker), gusts, collapse and bounce, framing camera that stays on the photos; sleeps while hidden |
 | `apps/web/src/Cairn.tsx` | Play page: overlays, mode choice, score card, sway gauge with the current limit, flicker opt-in and log download, recent cairns |
 | `apps/web/src/PaperNumber.tsx` | A number in paper cut-out digits |
 | `apps/web/src/cairnScores.ts` | Validated per-browser bests, round log, flicker choice and flicker log |

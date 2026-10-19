@@ -798,7 +798,21 @@
  "background": {
   "w": 1992,
   "h": 1328,
-  "scale": 0.666667
+  "scale": 0.666667,
+  "above": [
+   {
+    "name": "background_mid",
+    "w": 1992,
+    "h": 863,
+    "scale": 0.666667
+   },
+   {
+    "name": "background_top",
+    "w": 1992,
+    "h": 1328,
+    "scale": 0.666667
+   }
+  ]
  },
  "ground": [
   [

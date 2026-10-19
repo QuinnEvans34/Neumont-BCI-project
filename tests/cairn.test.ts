@@ -10,7 +10,6 @@ import {
   dropSway,
   gustLoad,
   CALM_INTERVAL,
-  CHEER_SECONDS,
   GO_INTERVAL,
   GO_WAIT,
   GO_APPROACH,
@@ -27,9 +26,13 @@ import {
 import {
   Stack,
   stoneKind,
+  printColumn,
   STONE_KINDS,
   JITTER,
+  PRINT_MARGIN,
+  COLUMN_PRINTS,
   type CairnManifest,
+  type Print,
 } from "../apps/web/src/cairnGeometry.ts";
 import {
   addRound,
@@ -129,7 +132,7 @@ test("go mode: stones arrive every 6 seconds regardless of steadiness", () => {
   assert.equal(s.stones, expected);
 });
 
-test("every fifth stone the hand gives a thumbs up before leaving", () => {
+test("the hand leaves straight after every stone, with no celebration at a new level", () => {
   const phases = (stones: number) => {
     let s: CairnState = { ...initialCairn("calm"), elapsed: 10, stones, approach: 0.999 };
     const seen: string[] = [];
@@ -140,16 +143,15 @@ test("every fifth stone the hand gives a thumbs up before leaving", () => {
     }
     return seen;
   };
-  assert.deepEqual(phases(4), ["release", "cheer", "exit", "approach"]);
+  assert.deepEqual(phases(4), ["release", "exit", "approach"]);
   assert.deepEqual(phases(5), ["release", "exit", "approach"]);
 });
 
-test("go mode keeps its 6 second schedule through a thumbs up", () => {
+test("go mode keeps its 6 second schedule across levels", () => {
   const s = run(initialCairn("go", 4), 64, 0.8);
   assert.equal(s.fallen, false);
-  // Stones land at GO_WAIT + GO_APPROACH, then every GO_INTERVAL, cheers or not.
+  // Stones land at GO_WAIT + GO_APPROACH, then every GO_INTERVAL.
   assert.equal(s.stones, 1 + Math.floor((64 - GO_WAIT - GO_APPROACH) / GO_INTERVAL));
-  assert.ok(CHEER_SECONDS < GO_WAIT, "the thumbs up fits inside the wait");
 });
 
 test("go mode: a stone set on a swaying tower knocks the cairn over", () => {
@@ -300,6 +302,40 @@ test("a smaller plank lowers the first stone by its scale", () => {
   const full = new Stack(manifest, 5).top;
   const small = new Stack(manifest, 5, 0.85).top;
   assert.ok(Math.abs(small - full * 0.85) < 1e-9, `${small} vs ${full}`);
+});
+
+test("taped photo prints cover the whole column the camera may show", () => {
+  const column = printColumn(manifest.background);
+  assert.equal(column.prints.length, COLUMN_PRINTS);
+  assert.deepEqual(
+    column.prints.map((p) => p.name),
+    ["background", "background_mid", "background_top", "background_top"],
+  );
+  assert.ok(column.prints[3].flip, "the repeated top view is mirrored");
+  const onPrint = (p: Print, x: number, y: number) => {
+    const c = Math.cos(p.rotation);
+    const s = Math.sin(p.rotation);
+    const dx = x - p.x;
+    const dy = y - p.y;
+    return (
+      Math.abs(dx * c + dy * s) <= p.w / 2 + PRINT_MARGIN &&
+      Math.abs(-dx * s + dy * c) <= p.h / 2 + PRINT_MARGIN
+    );
+  };
+  for (let y = column.top; y <= column.bottom; y += 8)
+    for (let x = column.left; x <= column.right; x += 8)
+      assert.ok(column.prints.some((p) => onPrint(p, x, y)), `bare page at ${x}, ${y}`);
+  // With the stage's 0.85 scene scale and the camera's headroom, a 40-stone cairn still has photo above it.
+  const stack = new Stack(manifest, 5, 0.85);
+  for (let i = 0; i < 40; i++) stack.place(i);
+  assert.ok(column.top * 0.85 < manifest.pivot.tip[1] * 0.85 + stack.top - 260);
+});
+
+test("without higher views the column is the main photo alone", () => {
+  const { above, ...main } = manifest.background;
+  const column = printColumn(main);
+  assert.equal(column.prints.length, 1);
+  assert.deepEqual([column.top, column.bottom, column.right], [0, main.h, main.w]);
 });
 
 const round = (over: Partial<CairnRound> = {}): CairnRound => ({

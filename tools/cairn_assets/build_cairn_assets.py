@@ -16,9 +16,6 @@ Two stages:
 The photos (images/dump) stay out of Git; the generated sprites and manifest in
 apps/web/src/assets/cairn are committed. The score digits are cut from
 images/paper_numbers.jpg, which needs no segmentation model.
-
-An optional ``hand_thumbs_up.JPG`` in the photo folder (same spot and framing as
-the other hand photos, thumb raised) becomes the hand's thumbs-up frame.
 """
 import argparse
 import json
@@ -35,7 +32,10 @@ BG_SCALE = 0.75  # background image pixels per photo pixel: finer than world uni
 BORDER = 7.0  # mean paper margin, output pixels
 PAPER = np.array([251, 250, 246], np.float32)
 HAND_FRAMES = ["hand_open_big", "hand_open_small", "hand_opening", "hand_closed"]
-THUMBS_UP = "hand_thumbs_up"  # optional photo; made from hand_closed when absent
+# Views shot higher up from the background's spot, lowest first: (photo, share of its height
+# kept from the top). They do not line up with it exactly, so the stage stacks them as
+# separate taped prints. The mid view's lower third is ground level again, so it is trimmed.
+ABOVE = {"background_mid": ("BG_MID.JPG", 0.65), "background_top": ("BG_TOP.JPG", 1.0)}
 STONES = [f"rock{i}" for i in range(1, 10)]
 
 # name: (photo, tight box [x0, y0, x1, y1] in full-resolution pixels, positive points)
@@ -53,7 +53,7 @@ OBJECTS = {
     "rock9": ("stacking_rocks2.JPG", [2852, 1401, 3209, 1581], []),
     **{
         f: (f"{f}.JPG", [1540, 0, 2990, 1790], [[2300, 1120], [2650, 400]])
-        for f in HAND_FRAMES + [THUMBS_UP]
+        for f in HAND_FRAMES
     },
 }
 
@@ -76,8 +76,6 @@ def segment(photos, masks):
     proc = SamProcessor.from_pretrained("facebook/sam-vit-huge")
     masks.mkdir(parents=True, exist_ok=True)
     for name, (file, box, points) in OBJECTS.items():
-        if not (photos / file).exists():
-            continue  # the thumbs-up photo is optional
         img = photo(photos, file)
         c = crop_box(img.size, box)
         kwargs = dict(input_boxes=[[[box[0] - c[0], box[1] - c[1], box[2] - c[0], box[3] - c[1]]]],
@@ -227,38 +225,6 @@ def fingertips(alpha):
     return tips
 
 
-def thumbs_up_from_fist(rgb, alpha):
-    """Stand-in thumbs up from the closed hand (a fist, thumb down), until a real photo exists.
-
-    Works on the aligned, cropped full-resolution frame. The thumb is cut from under the
-    fist, turned over and tucked behind the fist's knuckles so it points up.
-    """
-    at = lambda sx, sy: (int((sx - 20) / SCALE), int(sy / SCALE))  # from hand sprite pixels
-    rgb, alpha = rgb.copy(), alpha.copy()
-    tx0, ty0 = at(244, 700)
-    tx1, ty1 = at(318, 822)
-    thumb_rgb = np.ascontiguousarray(rgb[ty0:ty1, tx0:tx1][::-1, ::-1])
-    thumb_a = np.ascontiguousarray(alpha[ty0:ty1, tx0:tx1][::-1, ::-1])
-    # Remove the thumb below the fist, with a soft cut so the fist keeps a rounded base.
-    cx, cy = at(244, 742)
-    yy, xx = np.mgrid[0:alpha.shape[0], 0:alpha.shape[1]]
-    alpha *= 1 - np.clip(cv2.GaussianBlur(((yy > cy) & (xx > cx)).astype(np.float32), (0, 0), 6) * 1.6, 0, 1)
-    # Set the turned thumb's root on top of the fist, leaning a little away from the arm.
-    h, w = thumb_a.shape
-    root = (w / 2, h * 0.92)
-    bx, by = at(165, 610)
-    m = cv2.getRotationMatrix2D(root, 10, 1.12)
-    m[0, 2] += bx - root[0]
-    m[1, 2] += by - root[1]
-    size = (alpha.shape[1], alpha.shape[0])
-    t_rgb = cv2.warpAffine(thumb_rgb, m, size, flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-    t_a = cv2.warpAffine(thumb_a, m, size, flags=cv2.INTER_LINEAR, borderValue=0)
-    t_a *= np.clip((by - yy) / 60 + 0.5, 0, 1)
-    a = alpha[..., None]
-    out = np.where(((alpha > 0.02) | (t_a > 0.02))[..., None], rgb * a + t_rgb * (1 - a), rgb)
-    return out.astype(np.uint8), np.maximum(alpha, t_a)
-
-
 def boulder_edge(gray, pivot, step=40):
     """Top edge of the pale boulder in world units, sampled across the photo; fallen stones bounce on it."""
     h, w = gray.shape
@@ -335,9 +301,18 @@ def compose(photos, masks, out):
     manifest["background"] = dict(w=size[0], h=size[1], scale=round(size[0] / fine.width, 6))
     manifest["ground"] = boulder_edge(np.asarray(small.convert("L")).astype(np.float32), manifest["pivot"])
 
+    above = []
+    for name, (file, keep) in ABOVE.items():
+        im = photo(photos, file)
+        im = im.crop((0, 0, im.width, round(im.height * keep)))
+        fine = im.resize((round(im.width * BG_SCALE), round(im.height * BG_SCALE)), Image.LANCZOS)
+        fine.save(out / f"{name}.jpg", quality=80, optimize=True, progressive=True)
+        w, h = round(im.width * SCALE), round(im.height * SCALE)
+        above.append(dict(name=name, w=w, h=h, scale=round(w / fine.width, 6)))
+    manifest["background"]["above"] = above
+
     # Hand frames: register every frame on the forearm of the first so only the fingers move.
-    thumbs_photo = (photos / OBJECTS[THUMBS_UP][0]).exists() and (masks / f"{THUMBS_UP}.png").exists()
-    frames = {f: load(photos, masks, f) for f in HAND_FRAMES + ([THUMBS_UP] if thumbs_photo else [])}
+    frames = {f: load(photos, masks, f) for f in HAND_FRAMES}
     ref_rgb, ref_alpha, ref_c = frames[HAND_FRAMES[0]]
     h, w = ref_alpha.shape
     band = np.zeros_like(ref_alpha)
@@ -361,21 +336,14 @@ def compose(photos, masks, out):
     ys, xs = np.nonzero(union > 0.05)
     cut = 120  # straight cut below the sleeve
     y0, y1, x0, x1 = cut, ys.max() + 30, max(0, xs.min() - 30), xs.max() + 30
-    if not thumbs_photo:
-        aligned[THUMBS_UP] = thumbs_up_from_fist(aligned["hand_closed"][0][y0:y1, x0:x1],
-                                                 aligned["hand_closed"][1][y0:y1, x0:x1])
     hand = {}
     for f, (rgb, alpha) in aligned.items():
-        if f == THUMBS_UP and not thumbs_photo:
-            rgb, alpha = resize(rgb, alpha)  # already cropped
-        else:
-            rgb, alpha = resize(rgb[y0:y1, x0:x1], alpha[y0:y1, x0:x1])
+        rgb, alpha = resize(rgb[y0:y1, x0:x1], alpha[y0:y1, x0:x1])
         rgba, pad = paper(rng, rgb, alpha)
         # Keep the arm's top edge a clean straight cut running off the page.
         rgba = rgba[pad:]
         save(rgba, out / f"{f}.webp")
-        if f in HAND_FRAMES:
-            hand[f] = fingertips(rgba[..., 3] > 128)
+        hand[f] = fingertips(rgba[..., 3] > 128)
         if f == "hand_closed":
             top_row = np.nonzero(rgba[0, :, 3] > 128)[0]
     manifest["hand"] = dict(w=int(rgba.shape[1]), h=int(rgba.shape[0]), tips=hand,

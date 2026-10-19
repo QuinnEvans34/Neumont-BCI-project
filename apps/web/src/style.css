@@ -366,6 +366,38 @@ progress {
 .counts b {
   color: #e3efeb;
 }
+.gate {
+  margin-top: 18px;
+  padding: 14px;
+  background: #0c2228;
+  border-radius: 10px;
+}
+.gate label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 0 8px;
+  color: #9eb8b8;
+}
+.gate label b {
+  font-size: 16px;
+  color: #b5f5db;
+}
+.gate-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #7f999d;
+}
+.gate-note {
+  font-size: 11px;
+  margin: 10px 0 0;
+  color: #9eb8b8;
+}
+.gate .notice {
+  font-size: 12px;
+  margin: 8px 0 0;
+}
 .actions {
   display: flex;
   gap: 12px;

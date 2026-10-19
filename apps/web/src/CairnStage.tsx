@@ -8,8 +8,6 @@ import {
   gustLoad,
   RELEASE_SECONDS,
   EXIT_SECONDS,
-  CHEER_SECONDS,
-  TIER_STONES,
   type CairnEvent,
   type CairnMode,
   type CairnState,
@@ -18,22 +16,28 @@ import {
 import {
   Stack,
   STONE_SCALE,
+  PRINT_MARGIN,
   plankOrigin,
+  printColumn,
   type CairnManifest,
   type PlacedStone,
 } from "./cairnGeometry";
 import type { CairnStimulus } from "./cairnScores";
 import manifestData from "./assets/cairn/manifest.json";
-import backgroundUrl from "./assets/cairn/background.jpg";
 import woodUrl from "./assets/cairn/wood.webp";
 import handOpenBigUrl from "./assets/cairn/hand_open_big.webp";
 import handOpenSmallUrl from "./assets/cairn/hand_open_small.webp";
 import handOpeningUrl from "./assets/cairn/hand_opening.webp";
 import handClosedUrl from "./assets/cairn/hand_closed.webp";
-import handThumbsUpUrl from "./assets/cairn/hand_thumbs_up.webp";
 import pivotUrl from "./assets/cairn/pivot.webp";
 
 const stoneUrls = import.meta.glob<string>("./assets/cairn/rock*.webp", {
+  eager: true,
+  query: "?url",
+  import: "default",
+});
+/** The main photo and the views shot higher up. */
+const photoUrls = import.meta.glob<string>("./assets/cairn/background*.jpg", {
   eager: true,
   query: "?url",
   import: "default",
@@ -92,14 +96,8 @@ const TIP = { x: M.pivot.tip[0] * SCENE, y: M.pivot.tip[1] * SCENE };
 const PIVOT_BASE = M.pivot.base * SCENE;
 /** Hand photos from widest pinch to closed; the hand shares the stones' scale. */
 const HAND = ["hand_open_big", "hand_open_small", "hand_opening", "hand_closed"] as const;
-const THUMBS_UP = "hand_thumbs_up";
 type HandFrame = (typeof HAND)[number];
 const HAND_SCALE = STONE_SCALE;
-/**
- * Where the hand's pinch point moves to show its thumbs up, from the stone it just set
- * down: beside the top of the cairn, so the raised thumb stays in view.
- */
-const CHEER_SPOT = { x: 175, y: 110 };
 /** Pinch point between index fingertip and thumb in a frame, where a carried stone's centre sits. */
 function pinch(frame: HandFrame) {
   const t = M.hand.tips[frame];
@@ -124,8 +122,20 @@ const ARM = (() => {
 const PLANK = plankOrigin(M.wood);
 const PLANK_HALF = ((M.wood.object[2] - M.wood.object[0]) / 2) * SCENE;
 const SHADOW = { x: 6, y: 8, alpha: 0.42 };
-const PAGE = { x: -3000, y: -4200, w: 8000, h: 7000 };
-const PRINT_MARGIN = 30;
+/** The main photo with the higher views taped above it, in photo world units. */
+const COLUMN = printColumn(M.background);
+/** The camera keeps this far inside the column, so the shake when the cairn falls never shows the page. */
+const EDGE = 12;
+/** What the camera may show, in world units: only photos, never the bare page. */
+const BOUNDS = {
+  left: COLUMN.left * SCENE + EDGE,
+  right: COLUMN.right * SCENE - EDGE,
+  top: COLUMN.top * SCENE + EDGE,
+  bottom: COLUMN.bottom * SCENE - EDGE,
+};
+/** The camera's widest framing: the view just fills the photo column. */
+const MIN_ZOOM = Math.max(W / (BOUNDS.right - BOUNDS.left), H / (BOUNDS.bottom - BOUNDS.top));
+const PAGE = { x: -3000, y: BOUNDS.top - 2000, w: 8000, h: BOUNDS.bottom - BOUNDS.top + 4000 };
 const GRAVITY = 2400;
 const SETTLE_SECONDS = 2.6;
 /** Firefly texture: canvas size, the body's centre in it, and its lantern relative to that centre. */
@@ -491,14 +501,16 @@ export default function CairnStage({
       private debugNonce = 0;
 
       preload() {
-        this.load.image("background", backgroundUrl);
+        for (const [path, url] of Object.entries(photoUrls)) {
+          const name = path.match(/(background\w*)\.jpg$/)?.[1];
+          if (name) this.load.image(name, url);
+        }
         this.load.image("pivot", pivotUrl);
         this.load.image("wood", woodUrl);
         this.load.image("hand_open_big", handOpenBigUrl);
         this.load.image("hand_open_small", handOpenSmallUrl);
         this.load.image("hand_opening", handOpeningUrl);
         this.load.image("hand_closed", handClosedUrl);
-        this.load.image(THUMBS_UP, handThumbsUpUrl);
         for (const [path, url] of Object.entries(stoneUrls)) {
           const name = path.match(/(rock\d+)\.webp$/)?.[1];
           if (name) this.load.image(name, url);
@@ -510,37 +522,50 @@ export default function CairnStage({
         makePaperTexture(this);
         makeBugTextures(this);
         makeGustTextures(this);
-        const bw = M.background.w;
-        const bh = M.background.h;
-        makePrintShadow(this, bw + PRINT_MARGIN * 2, bh + PRINT_MARGIN * 2);
+        makePrintShadow(this, M.background.w + PRINT_MARGIN * 2, M.background.h + PRINT_MARGIN * 2);
         for (const key of [
           "wood",
           ...HAND,
-          THUMBS_UP,
           "bug-0",
           ...Object.keys(stoneUrls).map((p) => p.match(/(rock\d+)/)![1]),
         ])
           makeShadowTexture(this, key);
 
-        // The scrapbook page, then the photo print taped onto it, drawn at the scene's scale.
+        // The scrapbook page, then the photo prints taped onto it, drawn at the scene's scale.
+        // Each higher view is laid over the top of the print below it.
         this.add.tileSprite(PAGE.x, PAGE.y, PAGE.w, PAGE.h, "paper").setOrigin(0);
-        const print = this.add.container(0, 0).setScale(SCENE);
-        print.add([
-          this.add.image(-PRINT_MARGIN - 40 + 10, -PRINT_MARGIN - 40 + 16, "print-shadow").setOrigin(0),
-          this.add
-            .rectangle(-PRINT_MARGIN, -PRINT_MARGIN, bw + PRINT_MARGIN * 2, bh + PRINT_MARGIN * 2, 0xfbfaf6)
-            .setOrigin(0),
-          this.add.image(0, 0, "background").setOrigin(0).setScale(M.background.scale ?? 1),
-        ]);
-        const pivot = M.pivot.image;
-        print.add(this.add.image(pivot.x, pivot.y, "pivot").setOrigin(0).setScale(pivot.scale));
-        for (const [x, y, r] of [
-          [-10, -12, -0.62],
-          [bw + 10, -12, 0.62],
-          [-14, bh + 8, 0.55],
-          [bw + 14, bh + 8, -0.55],
-        ])
-          print.add(this.add.rectangle(x, y, 210, 58, 0xefe3c4, 0.78).setRotation(r));
+        const page = this.add.container(0, 0).setScale(SCENE);
+        COLUMN.prints.forEach((p, i) => {
+          const hw = p.w / 2;
+          const hh = p.h / 2;
+          const print = this.add.container(p.x, p.y).setRotation(p.rotation);
+          print.add([
+            this.add
+              .image(10, 16, "print-shadow")
+              .setDisplaySize(p.w + PRINT_MARGIN * 2 + 80, p.h + PRINT_MARGIN * 2 + 80),
+            this.add.rectangle(0, 0, p.w + PRINT_MARGIN * 2, p.h + PRINT_MARGIN * 2, 0xfbfaf6),
+            this.add.image(0, 0, p.name).setScale(p.scale).setFlipX(p.flip),
+          ]);
+          if (i === 0) {
+            const pivot = M.pivot.image;
+            print.add(this.add.image(pivot.x - hw, pivot.y - hh, "pivot").setOrigin(0).setScale(pivot.scale));
+          }
+          const tape: number[][] = [
+            [-hw - 14, hh + 8, 0.55],
+            [hw + 14, hh + 8, -0.55],
+          ];
+          // The next print up covers this one's top corners.
+          if (i === COLUMN.prints.length - 1) tape.push([-hw - 10, -hh - 12, -0.62], [hw + 10, -hh - 12, 0.62]);
+          // Strips across the seam hold a higher view down, clear of the cairn in the middle.
+          if (i > 0)
+            tape.push(
+              [-hw * (0.67 - 0.05 * i), hh + PRINT_MARGIN, 1.32 + 0.08 * i],
+              [hw * (0.52 + 0.06 * i), hh + PRINT_MARGIN, -1.4 + 0.07 * i],
+            );
+          for (const [x, y, r] of tape)
+            print.add(this.add.rectangle(x, y, 210, 58, 0xefe3c4, 0.78).setRotation(r));
+          page.add(print);
+        });
 
         this.tower = this.add.container(TIP.x, TIP.y);
         this.plankShadow = this.add
@@ -681,7 +706,11 @@ export default function CairnStage({
         this.stones = [];
         if (this.handGroup.visible) this.handExit = { x: this.handGroup.x, y: this.handGroup.y, t: 0 };
         if (this.bug.visible) this.bugFade = 1;
-        if (!current.current.reducedMotion) this.cameras.main.shake(260, 0.004);
+        if (!current.current.reducedMotion) {
+          // Phaser shakes by up to intensity × width × zoom world units; keep it inside EDGE.
+          const cam = this.cameras.main;
+          cam.shake(260, Math.min(0.004, EDGE / (cam.width * cam.zoom)));
+        }
       }
 
       private ride(d: Debris) {
@@ -765,9 +794,6 @@ export default function CairnStage({
         this.carriedShadow.setVisible(false);
         const placed = this.lastPlaced ?? { x: 0, y: this.stack.top };
         const base = this.toWorld(placed.x, placed.y);
-        // Where the release leaves the hand, just above the stone it set down.
-        const rest = { x: base.x + ARM.x * 12, y: base.y - 46 + ARM.y * 12 };
-        const spot = { x: base.x + CHEER_SPOT.x, y: base.y + CHEER_SPOT.y };
         if (s.phase === "release") {
           const t = Math.min(1, s.phaseTime / RELEASE_SECONDS);
           const closing = HAND.slice(HAND.indexOf(this.pose) + 1);
@@ -776,26 +802,15 @@ export default function CairnStage({
           g.setRotation(s.angle * (1 - t));
           return;
         }
-        if (s.phase === "cheer") {
-          // Every fifth stone: step aside from the tower and pump a thumbs up twice.
-          const t = Math.min(1, s.phaseTime / CHEER_SECONDS);
-          const k = easeOut(Math.min(1, t / 0.3));
-          const pump = current.current.reducedMotion ? 0 : Math.sin(smooth(0.25, 0.95, t) * Math.PI * 4);
-          this.setHandFrame(THUMBS_UP);
-          g.setPosition(rest.x + (spot.x - rest.x) * k, rest.y + (spot.y - rest.y) * k - 14 * Math.max(0, pump));
-          g.setRotation(-0.06 * pump);
-          return;
-        }
-        // exit, still showing the thumbs up after a cheer
-        const cheered = s.stones > 0 && s.stones % TIER_STONES === 0;
+        // exit: back the way it came, from where the release left it just above the stone.
+        const rest = { x: base.x + ARM.x * 12, y: base.y - 46 + ARM.y * 12 };
         const t = Math.min(1, s.phaseTime / EXIT_SECONDS);
-        const start = cheered ? spot : rest;
-        const d = this.offPageDistance(start) * easeIn(t);
-        g.setPosition(start.x + ARM.x * d, start.y + ARM.y * d).setRotation(0);
-        this.setHandFrame(cheered ? THUMBS_UP : "hand_closed");
+        const d = this.offPageDistance(rest) * easeIn(t);
+        g.setPosition(rest.x + ARM.x * d, rest.y + ARM.y * d).setRotation(0);
+        this.setHandFrame("hand_closed");
       }
 
-      private setHandFrame(key: HandFrame | typeof THUMBS_UP) {
+      private setHandFrame(key: HandFrame) {
         if (this.hand.texture.key === key) return;
         this.hand.setTexture(key);
         this.handShadow.setTexture(`${key}-shadow`);
@@ -996,8 +1011,8 @@ export default function CairnStage({
         const topWorld = TIP.y + topLocal - 260;
         const bottom = PIVOT_BASE + 150;
         const span = bottom - topWorld;
-        const minZoom = 0.36;
-        const zoom = Math.max(minZoom, Math.min(MAX_ZOOM, H / span));
+        // Never wider than the photos: a tall cairn's base drops out of view instead.
+        const zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, H / span));
         const lean = Math.sin(this.sim.angle) * -topLocal * 0.25;
         const fx = TIP.x + lean;
         const fy = H / zoom >= span ? (bottom + topWorld) / 2 : topWorld + H / zoom / 2;
@@ -1006,6 +1021,10 @@ export default function CairnStage({
         this.zoom += (zoom - this.zoom) * k;
         this.focusX += (fx - this.focusX) * k;
         this.focusY += (fy - this.focusY) * k;
+        const halfW = W / this.zoom / 2;
+        const halfH = H / this.zoom / 2;
+        this.focusX = Math.max(BOUNDS.left + halfW, Math.min(BOUNDS.right - halfW, this.focusX));
+        this.focusY = Math.max(BOUNDS.top + halfH, Math.min(BOUNDS.bottom - halfH, this.focusY));
         cam.setZoom(this.zoom * density);
         cam.centerOn(this.focusX, this.focusY);
       }
