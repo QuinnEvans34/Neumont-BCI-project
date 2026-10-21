@@ -39,7 +39,7 @@ test("malformed or stale EEG cannot count as usable input", () => {
   const f = {
     version: 1,
     sequence: 0,
-    timestamp_ms: 10,
+    timestamp_ms: Date.now(),
     source: "synthetic",
     score: 0.5,
     quality: "good",
@@ -74,4 +74,12 @@ test("acceptance gate stops cover the backend range and preview channel acceptan
   assert.equal(passesGate({ ...ch, ptp_uv: 800 }, 800), false);
   assert.equal(passesGate({ std_uv: 0.4, ptp_uv: 2 }, 800), false);
   assert.equal(passesGate({ std_uv: null, ptp_uv: null }, 5000), false);
+});
+
+test("queued old input cannot resume a game just because it was received now", () => {
+  const frame = parseFrame({ version: 1, sequence: 1, timestamp_ms: 10000,
+    source: "live", score: 0.5, quality: "good", calibrated: true });
+  assert.equal(isUsable(frame, 100, 100, 25000), false);
+  assert.equal(isUsable(frame, 100, 100, 10100), true);
+  assert.equal(isUsable(frame, 100, 100, 1000), false);
 });

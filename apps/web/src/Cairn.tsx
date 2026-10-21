@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { CairnTrace } from "./research/cairnTrace";
+import { research } from "./research/logger";
 import CairnStage, { BUG_HZ, type CairnView, type StageStimulus } from "./CairnStage";
 import PaperNumber from "./PaperNumber";
 import {
@@ -44,11 +46,17 @@ export type CairnProps = {
   onStimulus: (s: CairnStimulus) => void;
   /** Start a new cairn, optionally in another mode. */
   onStart: (mode?: CairnMode) => void;
+  /** Development only: run the model faster than real time (logged with the round). */
+  timeScale?: number;
   onPause: () => void;
   onResume: () => void;
   onChangeGame: () => void;
   onInspect: () => void;
   evidence: ReactNode;
+  /** Research logging: why the game cannot tick (null when live), and why the next reset happens. */
+  blocker?: string | null;
+  resetReason?: string;
+  usable?: boolean;
 };
 
 const MODE_INFO: Record<CairnMode, { title: string; text: string }> = {
@@ -145,6 +153,34 @@ export default function Cairn(props: CairnProps) {
     };
   }, [props.reset]);
 
+  // Research instrumentation: one trace per page, fed from the Phaser update loop.
+  const trace = useMemo(() => new CairnTrace(research), []);
+  useEffect(() => research.onBegin(() => trace.onRecordingBegin()), [trace]);
+  useEffect(() => {
+    // A reset that the stage has not applied yet starts a new round: nothing to resume.
+    if (props.live) {
+      if (trace.resetId === props.reset) trace.resume();
+    } else trace.pause(props.blocker ?? "paused");
+  }, [props.live, props.reset]);
+  const flickerSeen = useRef({ requested: props.record.flicker, reducedMotion });
+  useEffect(() => {
+    const prev = flickerSeen.current;
+    if (prev.requested === props.record.flicker && prev.reducedMotion === reducedMotion) return;
+    flickerSeen.current = { requested: props.record.flicker, reducedMotion };
+    research.event("flicker_setting_changed", {
+      game: "cairn",
+      round_id: trace.started && !trace.ended ? trace.roundId : null,
+      reason: prev.reducedMotion !== reducedMotion ? "system_reduced_motion_changed" : "operator_toggle",
+      payload: {
+        old_requested: prev.requested,
+        new_requested: props.record.flicker,
+        reduced_motion: reducedMotion,
+        effective_allowed: props.record.flicker && !reducedMotion,
+        hz: BUG_HZ,
+      },
+    });
+  }, [props.record.flicker, reducedMotion]);
+
   const recent = props.record.rounds.slice(-5).reverse();
   const level = props.score === null ? null : Math.round(props.score * 100);
   const showLevel = props.live && level !== null;
@@ -207,7 +243,13 @@ export default function Cairn(props: CairnProps) {
                   mode: props.mode,
                   flicker: flickerOn,
                   reducedMotion,
+                  source: props.sourceId,
+                  usable: props.usable ?? props.score !== null,
+                  blocker: props.blocker ?? null,
+                  resetReason: props.resetReason,
+                  timeScale: props.timeScale,
                 }}
+                trace={trace}
                 onState={setView}
                 onStimulus={(s) => logStimulus.current(s)}
               />

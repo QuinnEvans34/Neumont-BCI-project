@@ -57,3 +57,19 @@ export function canTick(g: TickGate) {
     g.boundSession === g.telemetrySession
   );
 }
+
+/**
+ * Why a game cannot tick right now, as a stable reason code for research logs
+ * (null when it can). Checked in the order a participant would notice them.
+ */
+export function tickBlocker(g: TickGate): string | null {
+  if (g.boundSession === null) return "not_started";
+  // No fresh telemetry is an outage (input unusable), not a session change.
+  if (g.telemetrySession === null || g.telemetrySession === undefined) return "input_unusable";
+  if (g.boundSession !== g.telemetrySession) return "session_changed";
+  if (!g.visible) return "tab_hidden";
+  if (!g.selected || !g.onPlayPage) return "left_game";
+  if (!g.usable) return "input_unusable";
+  if (!g.running) return "paused_by_user";
+  return null;
+}

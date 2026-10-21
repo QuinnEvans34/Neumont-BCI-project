@@ -8,9 +8,19 @@ AI & Data Club's ten-week showcase project: a virtual ball-and-beam neurofeedbac
 
 ## Start here
 
+**Research / Dev Mode (implemented October 21; verified with Simulated EEG only):** a header switch shows a persistent recording bar. One recording captures a pseudonymous participant across connection, calibration, Cairn and Garden:
+
+- full-rate EEG, every 2-second signal window with per-channel metrics, and every input frame the games used;
+- ~20 Hz game state and all game events (stones, fireflies, gusts, flicker, falls, plants, milestones, settle-in, breathing/audio settings, pauses), with markers;
+- storage as CSV, SQLite or Both in a chosen local folder.
+
+**Stop & save** then **Download ZIP** gives one portable CSV ZIP for sharing in Teams. **Review** lists every recording and has a Cairn fall inspector and a Garden inspector. See the [operating guide](docs/dev-mode/operating.md), [verification notes](docs/dev-mode/verification.md) and [specification](docs/dev-mode/README.md).
+
 **Cairn (new):** a focus game in a photo-scrapbook style. A hand stacks real stones on a plank balanced on a pointed rock; steady signal keeps the tower still, distraction makes it sway and fall, and every stone is a point. Every fifth stone makes the cairn touchier; fireflies and gusts of wind come more often as it grows, and the fireflies can blink at 15 Hz as an opt-in SSVEP stimulus. Calm and Go modes, best scores per mode and source, and a no-headset test path using recorded OpenBCI sessions. See [the Cairn guide](docs/cairn.md).
 
 **Glowing Garden (first version implemented):** a second game where a central plant glows with your signal and grows with sustained above-baseline input. Both games share one connection, one session and one baseline through a new game chooser. See the [specification](docs/garden/spec.md), [implementation handoff](docs/garden/claude-handoff.md) and [verification notes](docs/garden/verification.md).
+
+**Experiments (prototype, implemented October 14):** *Bilateral Visual Stimulation* (alternating left/right cues with raw-EEG observation and recording) and *SSVEP Cards* (three cards at 10/12/15 Hz with a real CCA decoder that selects or abstains). Both appear in the shared chooser, bypass the alpha baseline, and save full-rate EEG, events, frame logs and predictions locally. Verified only with Simulated EEG so far; see the [experiment verification notes](docs/experiments/verification.md) for what is and is not verified, and next-class operating steps.
 
 **Immediate weekend goal:** [Recorded EEG → calibration → game, plus tomorrow’s hardware check](docs/replay-and-connection.md). No headset needed for replay. See also the [live-demo plan](docs/weekend-live-demo.md).
 
@@ -23,6 +33,7 @@ AI & Data Club's ten-week showcase project: a virtual ball-and-beam neurofeedbac
 - [Architecture and input contract](docs/architecture.md)
 - [Research and reusable software](docs/research.md)
 - [P300/SSVEP research: datasets, activities, apps and hexapod control](docs/p300-ssvep-research.md)
+- [Bilateral and SSVEP experiments: spec, plan and Claude prompt](docs/experiments/spec.md) · [verification and operating notes](docs/experiments/verification.md)
 - [Starter validation report](docs/validation.md)
 - [Decisions and open questions](docs/decisions.md)
 - [Contributing](CONTRIBUTING.md)
@@ -36,7 +47,7 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. Follow Connect → Calibrate → Choose a game → Play. Run the backend below, then choose a recorded session or explicitly labeled simulation to develop without hardware.
+Open http://127.0.0.1:5173. Follow Connect → Calibrate → Choose → Play (experiments can skip Calibrate). Run the backend below, then choose a recorded session or an explicitly labeled simulation to develop without hardware: **Simulation** produces a game score only; **Simulated EEG** produces raw 8-channel samples for experiments and recordings (pipeline testing, never evidence about a person).
 
 ## Run the EEG backend
 
@@ -51,7 +62,7 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 
 Run the frontend in a second terminal. On **Connect**, choose a recording and click **Start playback & inspect**, or select the Cyton dongle port and click **Connect & inspect**. Close the OpenBCI GUI board session before connecting directly.
 
-On **Calibrate**, inspect the waveform, recording playhead, delivery rate and channel gates. If channels fail on amplitude, the **Acceptance gate** slider sets the peak-to-peak ceiling (100–5000 µV, default 500) used for baseline windows and play. Click **Begin baseline** to collect 30 accepted, non-overlapping two-second windows. Then click **Choose a game** and pick **Glowing Garden**, **Cairn** or **Balance Beam**: acquisition keeps running with the same session, file position and baseline, and switching games never reconnects or recalibrates. Simulation bypasses EEG calibration and is explicitly labeled.
+On **Calibrate**, inspect the waveform, recording playhead, delivery rate and channel gates. If channels fail on amplitude, the **Acceptance gate** slider sets the peak-to-peak ceiling (100–5000 µV, default 500) used for baseline windows and play. Click **Begin baseline** to collect 30 accepted, non-overlapping two-second windows. Then click **Choose a game** and pick **Glowing Garden**, **Cairn** or **Balance Beam** (or open an experiment without calibration): acquisition keeps running with the same session, file position and baseline, and switching games never reconnects or recalibrates. Simulation bypasses EEG calibration and is explicitly labeled.
 
 **Glowing Garden.** The plant's glow, leaf opening, sun and fireflies follow the published score immediately (with extra visual smoothing). Scores above the 50% baseline score earn lasting growth through Sprout → Growing → Blooming; at the default pace that takes about 90 s at score 1 or 180 s at 0.75. Lower scores dim the light but never remove earned leaves. Pause, Change game, a hidden tab, stale or rejected input all freeze the garden until you click Resume; a new session or a recalibration (including one started by another viewer) resets both games.
 
@@ -62,9 +73,13 @@ On **Calibrate**, inspect the waveform, recording playhead, delivery rate and ch
 
 Art review without waiting for input: with `npm run dev`, open http://127.0.0.1:5173/?garden-preview (sliders), `?garden-preview&demo` (time-lapse) or `?garden-preview&demo&sound`. The preview exists only in development builds.
 
+**Experiments.** Open **Bilateral Visual Stimulation** or **SSVEP Cards** from Choose; opening never starts stimulation. Each page has setup (participant pseudonym, electrode map, settings), a notice, an explicit Start, a persistent Stop and Escape-to-stop. SSVEP also needs a 5-second display check (steady 60 or 120 Hz) and at least two O/PO channels; it runs threshold setup → freeze → evaluation and reports correct, incorrect, abstained, invalid and neutral-false-activation counts separately. Recordings are written to `data/experiments/<uuid>/` (ignored by Git; override with `BCI_EXPERIMENTS_DIR`) and can be exported as a zip. Optical timing is unverified (no photodiode).
+
 **Cairn.** Pick **Calm** (the hand only moves while the tower is still: a stone every 3 s when you stay focused) or **Go** (a stone every 6 s, ready or not; one that lands on a swaying tower topples it), then **Start stacking**. Signal above baseline stiffens and steadies the tower; time below baseline builds gusts until it falls. Every five stones the tilt that topples it shrinks, and fireflies and gusts (which briefly lower that tilt) grow commoner and stronger; a typical player averages about 15 stones in Calm. The fall ends the round and the stone count is the score; bests are kept per mode and per input source. **Fireflies blink at 15 Hz (SSVEP)** is off by default; turn it on only for players who have agreed to flashing light, and download the flicker log to line it up with EEG. Rules, tuning and the art pipeline are in [docs/cairn.md](docs/cairn.md).
 
 *Test Cairn with recorded EEG, no headset:* convert OpenBCI GUI's sample session (`python -m backend.openbci_convert ~/Documents/OpenBCI_GUI/Sample_Data/OpenBCI_GUI-v6-meditation.txt`), start the backend with `BCI_RECORDINGS_DIR=data/recordings`, and choose that recording on Connect. Or, with only `npm run dev`, open http://127.0.0.1:5173/?cairn-preview to play recorded game input (from `python -m backend.score_trace`) through the game at up to 8× speed.
+
+**Research / Dev Mode.** Turn on the header switch, click **Start…**, enter and confirm a participant pseudonym, choose CSV/SQLite/Both and a destination folder, and click **Start recording** (before or after connecting). Play as usual, add markers (Alt+M), then **Stop & save** and **Download ZIP**. The backend writes to `data/research/<uuid>/` (ignored by Git; override with `BCI_RESEARCH_DIR`); the ZIP is a separate browser download. Full steps, the storage/download distinction and an analysis example: [docs/dev-mode/operating.md](docs/dev-mode/operating.md).
 
 **Balance Beam.**
 

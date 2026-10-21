@@ -24,6 +24,23 @@ def service():
 
 
 class SessionTests(unittest.TestCase):
+    def test_experiments_keep_strict_counter_breaks_across_batches(self):
+        s = service()
+        s.experiments.on_samples = MagicMock()
+        s.ingest(block(0, 250))
+        # A one-sample skip is tolerated by the game tracker, but is still
+        # forwarded to experiments at its absolute sample index.
+        s.ingest(block(251, 250))
+        self.assertEqual(s.counter.lost, 1)
+        self.assertIsNone(s.counter.problem(0, 500))
+        args = s.experiments.on_samples.call_args.args
+        self.assertEqual(args[0], 250)
+        self.assertEqual(args[4], [250])
+        self.assertEqual(args[1].shape, (8, 250))
+        s.set_gate(2000)
+        self.assertEqual(s.gate_uv, 2000)
+        self.assertEqual(s.last_counter, 500 % 256)
+
     def test_explicit_baseline_ignores_previous_samples_and_survives_handoff(self):
         s=service()
         with patch('backend.main.time.monotonic',return_value=101):

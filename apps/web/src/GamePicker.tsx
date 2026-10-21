@@ -2,7 +2,11 @@ import GardenScene from "./GardenScene";
 import { GAMES, type GameId } from "./games/catalog";
 import cairnCard from "./assets/cairn/card.jpg";
 
-export type GameStatus = { inProgress: boolean; detail: string };
+export type GameStatus = {
+  inProgress: boolean;
+  detail: string;
+  ready?: boolean;
+};
 
 function GardenIllustration() {
   // A still frame of the real scene, so the card shows exactly what you'll play.
@@ -46,6 +50,81 @@ function BeamIllustration() {
   );
 }
 
+function BilateralIllustration() {
+  return (
+    <svg
+      viewBox="0 0 220 130"
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+    >
+      <circle cx="58" cy="62" r="24" fill="#22383c" />
+      <circle
+        cx="58"
+        cy="62"
+        r="24"
+        fill="none"
+        stroke="#f2c96e"
+        strokeWidth="3"
+      />
+      <circle cx="58" cy="62" r="34" fill="#f2c96e" opacity="0.12" />
+      <circle cx="162" cy="62" r="24" fill="#22383c" />
+      <path
+        d="M110 55v14M103 62h14"
+        stroke="#8fa8ab"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M30 108h160"
+        stroke="#2e4a4f"
+        strokeWidth="6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M30 108h56"
+        stroke="#9db4ff"
+        strokeWidth="6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function SsvepIllustration() {
+  return (
+    <svg
+      viewBox="0 0 220 130"
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+    >
+      {[0, 1, 2].map((k) => (
+        <g key={k}>
+          <rect
+            x={22 + k * 64}
+            y={30}
+            width={48}
+            height={48}
+            fill={["#d9dede", "#8a9496", "#c2c9ca"][k]}
+          />
+          <text
+            x={46 + k * 64}
+            y={98}
+            textAnchor="middle"
+            fill="#8fa8ab"
+            fontSize="12"
+            fontWeight="600"
+          >
+            {"ABC"[k]}
+          </text>
+        </g>
+      ))}
+      <rect x="36" y="110" width="40" height="5" fill="#f2c96e" />
+      <rect x="90" y="110" width="22" height="5" fill="#8ff1d0" />
+      <rect x="126" y="110" width="14" height="5" fill="#9db4ff" />
+    </svg>
+  );
+}
+
 export default function GamePicker({
   ready,
   reason,
@@ -64,11 +143,12 @@ export default function GamePicker({
   return (
     <>
       <section className="intro">
-        <p className="eyebrow">03 / CHOOSE A GAME</p>
-        <h1>Pick how your signal plays.</h1>
+        <p className="eyebrow">03 / CHOOSE AN EXPERIENCE</p>
+        <h1>Games &amp; experiments.</h1>
         <p>
-          Every game uses the same stream and the same baseline. Switching
-          games pauses the one you leave; nothing reconnects or recalibrates.
+          Everything shares one input stream. Games use the alpha baseline;
+          experiments record raw EEG and have their own setup. Switching never
+          reconnects or recalibrates, and opening an experiment never starts it.
         </p>
       </section>
       {!ready && (
@@ -87,16 +167,24 @@ export default function GamePicker({
       <div className="game-cards">
         {GAMES.map((g) => {
           const s = status[g.id];
-          const disabled = !ready && !s.inProgress;
+          const experiment = g.kind === "experiment";
+          const disabled = experiment ? false : !ready && !s.inProgress;
           return (
-            <article key={g.id} className={`game-card ${g.id}`}>
+            <article key={g.id} className={`game-card ${g.id} kind-${g.kind}`}>
               <div className="game-art">
                 {g.id === "garden" ? (
                   <GardenIllustration />
                 ) : g.id === "cairn" ? (
                   <CairnIllustration />
-                ) : (
+                ) : g.id === "balance" ? (
                   <BeamIllustration />
+                ) : g.id === "bilateral" ? (
+                  <BilateralIllustration />
+                ) : (
+                  <SsvepIllustration />
+                )}
+                {experiment && (
+                  <span className="exp-badge on-art">Experiment</span>
                 )}
               </div>
               <div className="game-card-body">
@@ -110,9 +198,10 @@ export default function GamePicker({
                 >
                   {s.inProgress ? g.resume : g.cta}
                 </button>
-                {disabled && (
+                {(disabled || experiment) && (
                   <p className="hint" id={`reason-${g.id}`}>
-                    Needs usable input first.
+                    {disabled ? "Needs usable input first. " : ""}
+                    {experiment ? g.requirement : ""}
                   </p>
                 )}
               </div>

@@ -25,6 +25,8 @@ import {
   type PlantLog,
 } from "./gardenPrefs";
 import { duration } from "./SignalPanel";
+import { GardenTrace } from "./research/gardenTrace";
+import { research } from "./research/logger";
 
 export type GardenProps = {
   /** Every tick gate passes: selected, play page, started, visible, fresh, usable, same session. */
@@ -45,6 +47,8 @@ export type GardenProps = {
   sourceLabel: string;
   relation: Relation | null;
   prefs: GardenPrefs;
+  /** An experiment is running: no garden sound or breathing guide. */
+  muted?: boolean;
   setPrefs: (patch: Partial<GardenPrefs>) => void;
   onPause: () => void;
   onResume: () => void;
@@ -53,6 +57,12 @@ export type GardenProps = {
   onChangeGame: () => void;
   onInspect: () => void;
   evidence: ReactNode;
+  /** Research logging: why the garden cannot tick (null when live) and why the next reset happens. */
+  blocker?: string | null;
+  resetReason?: string;
+  usable?: boolean;
+  /** Feature and baseline behind the displayed relation, for the research log. */
+  relationDetail?: Record<string, unknown>;
 };
 
 type Snapshot = GardenState & {
@@ -127,6 +137,29 @@ export default function Garden(props: GardenProps) {
   const [chartNow, setChartNow] = useState(() => performance.now());
   const audio = useMemo(() => new GardenAudio(), []);
   const introFired = useRef(false);
+  // Research instrumentation: observes the model and settings; never changes them.
+  const trace = useMemo(
+    () =>
+      new GardenTrace(research, {
+        seconds: INTRO_SECONDS,
+        steps: INTRO_STEPS.map(({ at, title }) => ({ at, title })),
+      }),
+    [],
+  );
+  trace.ctx = {
+    source: props.sourceId,
+    score: props.live ? props.score : null,
+    usable: props.usable ?? props.score !== null,
+    live: props.live,
+    blocker: props.blocker ?? null,
+    relation: props.relation,
+    pace: props.prefs.pace,
+    guide: props.prefs.guide,
+    sound: props.prefs.sound,
+    volume: props.prefs.volume,
+    reducedMotion,
+    settleIn: props.prefs.settleIn,
+  };
 
   // ---- session log (facilitator tuning) ----
   const [log, setLog] = useState<PlantLog[]>(() => loadLog());
@@ -156,6 +189,57 @@ export default function Garden(props: GardenProps) {
       return next;
     });
   }
+
+  // Research lifecycle: settle-in, plant start/end and resets, in logical order.
+  const seen = useRef({ reset: props.reset, intro: props.intro, started: props.started });
+  useEffect(() => {
+    const prev = seen.current;
+    seen.current = { reset: props.reset, intro: props.intro, started: props.started };
+    const resetChanged = prev.reset !== props.reset;
+    if (prev.intro && !props.intro) {
+      if (props.started)
+        trace.settleEnded(
+          trace.settleElapsed >= INTRO_SECONDS - 0.05 ? "completed" : "skipped",
+          trace.settleElapsed >= INTRO_SECONDS - 0.05 ? "completed" : "skipped_by_user",
+        );
+      else trace.settleEnded("interrupted", props.resetReason && resetChanged ? props.resetReason : (props.blocker ?? "left_game"));
+    }
+    if (resetChanged) trace.reset(props.resetReason ?? "new_plant");
+    if (!prev.intro && props.intro) trace.settleStarted();
+    if (props.started && (!prev.started || resetChanged)) {
+      trace.observe(initialGarden());
+      trace.plantStart();
+    }
+  }, [props.reset, props.intro, props.started]);
+  useEffect(() => research.onBegin(() => trace.onRecordingBegin()), [trace]);
+  useEffect(() => {
+    if (props.live) trace.resume();
+    else {
+      trace.pause(props.blocker ?? "paused");
+      trace.gate();
+    }
+  }, [props.live]);
+  // Settings: old/new values at the moment they change.
+  const settings = useRef({ ...props.prefs, reducedMotion });
+  useEffect(() => {
+    const p = settings.current;
+    const n = { ...props.prefs, reducedMotion };
+    settings.current = n;
+    if (p.pace !== n.pace) trace.setting("pace_changed", p.pace, n.pace);
+    if (p.guide !== n.guide) trace.setting("breathing_guide_changed", p.guide, n.guide);
+    if (p.sound !== n.sound) trace.setting("audio_setting_changed", { sound: p.sound }, { sound: n.sound });
+    if (p.volume !== n.volume) trace.setting("audio_setting_changed", { volume: p.volume }, { volume: n.volume });
+    if (p.settleIn !== n.settleIn) trace.setting("settle_in_setting_changed", p.settleIn, n.settleIn);
+    if (p.targetMinutes !== n.targetMinutes) trace.setting("target_minutes_changed", p.targetMinutes, n.targetMinutes);
+    if (p.reducedMotion !== n.reducedMotion)
+      trace.setting("reduced_motion_changed", p.reducedMotion, n.reducedMotion, "system_preference");
+  }, [props.prefs, reducedMotion]);
+  const relationSeen = useRef(props.relation);
+  useEffect(() => {
+    const old = relationSeen.current;
+    relationSeen.current = props.relation;
+    if (old !== props.relation && trace.open) trace.relation(old, props.relation, props.relationDetail ?? {});
+  }, [props.relation]);
 
   // Explicit resets (new plant, new session, recalibration) archive the old plant
   // for the tuning log, then restore the initial state.
@@ -205,8 +289,10 @@ export default function Garden(props: GardenProps) {
       const c = current.current;
       const m = model.current;
       let next: Snapshot = m;
+      const tNow = performance.timeOrigin + now;
       if (c.live && c.score !== null) {
         const g = stepGarden(m, dt, c.score, c.prefs.pace);
+        trace.step(m, g, tNow);
         next = {
           ...m,
           ...g,
@@ -229,15 +315,17 @@ export default function Garden(props: GardenProps) {
       // In the settle-in the ring appears with "Follow the light"; in play it is optional.
       const guideTarget =
         (c.intro && next.intro >= INTRO_STEPS[2].at - 1) ||
-        (c.live && c.prefs.guide)
+        (c.live && c.prefs.guide && !c.muted)
           ? 1
           : 0;
       let guide =
         next.guide + (guideTarget - next.guide) * (1 - Math.exp(-dt / 0.8));
       if (guide < 0.003) guide = 0;
+      trace.gate(tNow);
       let intro = next.intro;
       if (c.intro) {
         intro += dt;
+        trace.settleProgress(intro, tNow);
         if (intro >= INTRO_SECONDS && !introFired.current) {
           introFired.current = true;
           c.onIntroDone();
@@ -257,13 +345,29 @@ export default function Garden(props: GardenProps) {
       }
       if (now - lastAudio > 100) {
         lastAudio = now;
+        const on = c.prefs.sound && awake && !c.muted;
+        trace.audio(
+          on && audio.running,
+          !c.prefs.sound
+            ? "off"
+            : c.muted
+              ? "muted_by_experiment"
+              : !awake
+                ? "paused"
+                : audio.running
+                  ? "playing"
+                  : "blocked_or_suspended_by_browser",
+          tNow,
+        );
         audio.update({
-          on: c.prefs.sound && awake,
+          on,
           response: c.live ? model.current.response : 0.5,
           breath: breathAt(model.current.time).level,
           volume: c.prefs.volume,
         });
       }
+      trace.breath(guideTarget === 1 ? breathAt(model.current.time).phase : null, tNow);
+      if ((c.live || c.intro) && research.stateDue("garden")) trace.snapshot(model.current);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);

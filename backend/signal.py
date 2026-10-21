@@ -32,7 +32,11 @@ def analyze(samples, rate, max_ptp_uv=DEFAULT_MAX_PTP_UV):
     freq = np.fft.rfftfreq(x.shape[1], 1 / rate)
     total = power[:, (freq >= 4) & (freq <= 30)].sum(axis=1)
     alpha = power[:, (freq >= 8) & (freq < 12)].sum(axis=1)
-    return float(np.median(alpha / np.maximum(total, 1e-12))), channels
+    ratios = alpha / np.maximum(total, 1e-12)
+    # Per-channel values are exactly the numbers whose median is the feature (for diagnostics).
+    for k, i in enumerate(included):
+        channels[i]['rel_alpha'] = float(ratios[k])
+    return float(np.median(ratios)), channels
 
 
 def feature(samples, rate, max_ptp_uv=DEFAULT_MAX_PTP_UV):
@@ -45,6 +49,7 @@ class Calibration:
         self.center = None
         self.scale = None
         self.score = .5
+        self.last_target = None
 
     def collect(self, value):
         self.values.append(value)
@@ -57,5 +62,6 @@ class Calibration:
 
     def map(self, value):
         target = float(np.clip(.5 + (value - self.center) / (6 * self.scale), 0, 1))
+        self.last_target = target
         self.score = .8 * self.score + .2 * target
         return self.score
