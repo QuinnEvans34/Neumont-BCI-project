@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import type { Telemetry } from "../SignalPanel";
 import { sourceName } from "../SignalPanel";
-import { API } from "./logger";
+import { API, uuid } from "./logger";
 import {
   api,
   useLoggerStatus,
@@ -19,6 +19,7 @@ type R = ReturnType<typeof useResearch>;
 
 const PARTICIPANT_RE = /^[A-Za-z0-9][A-Za-z0-9_.]{0,31}$/;
 const CONDITION_RE = /^[A-Za-z0-9 _.()/-]{0,60}$/;
+const newParticipant = () => `P_${uuid().replaceAll("-", "").slice(0, 12)}`;
 const LAST_PARTICIPANT = "bci-research:last-participant";
 
 const fmtDuration = (s: number) => {
@@ -224,7 +225,7 @@ export default function ResearchBar({
 }
 
 function Setup({ r, t, onStarted }: { r: R; t: Telemetry | null; onStarted: () => void }) {
-  const [participant, setParticipant] = useState("");
+  const [participant, setParticipant] = useState(newParticipant);
   const [last] = useState(() => {
     try {
       return localStorage.getItem(LAST_PARTICIPANT) ?? "";
@@ -232,7 +233,6 @@ function Setup({ r, t, onStarted }: { r: R; t: Telemetry | null; onStarted: () =
       return "";
     }
   });
-  const [confirmed, setConfirmed] = useState(false);
   const [dests, setDests] = useState<Destination[]>([]);
   const [root, setRoot] = useState("");
   const [probe, setProbe] = useState<{ id: string; ok: boolean; text: string } | null>(null);
@@ -258,6 +258,7 @@ function Setup({ r, t, onStarted }: { r: R; t: Telemetry | null; onStarted: () =
     setProbe(null);
     try {
       const p = await api<{ free_bytes: number | null }>(`/api/research/destinations/${id}/probe`, {});
+      setDests((current) => current.map((d) => d.id === id ? { ...d, available: true } : d));
       setProbe({
         id,
         ok: true,
@@ -278,13 +279,13 @@ function Setup({ r, t, onStarted }: { r: R; t: Telemetry | null; onStarted: () =
   const dest = dests.find((d) => d.id === c.destination_id);
   const destOk = probe?.id === c.destination_id && probe.ok;
   const sourceKnown = !!t?.session_id;
-  const canStart = validParticipant && confirmed && validCondition && destOk && !r.busy;
+  const canStart = validParticipant && validCondition && destOk && !r.busy;
 
   return (
     <div className="rs-setup">
       <div className="rs-grid">
         <label>
-          Participant pseudonym (required, confirm for every recording)
+          Participant ID (generated automatically)
           <input
             value={participant}
             placeholder="e.g. P012"
@@ -292,10 +293,9 @@ function Setup({ r, t, onStarted }: { r: R; t: Telemetry | null; onStarted: () =
             autoComplete="off"
             onChange={(e) => {
               setParticipant(e.target.value.trim());
-              setConfirmed(false);
             }}
           />
-          {last && !participant && (
+          {last && (
             <button type="button" className="linkish" onClick={() => setParticipant(last)}>
               Use previous: {last}
             </button>
@@ -304,14 +304,14 @@ function Setup({ r, t, onStarted }: { r: R; t: Telemetry | null; onStarted: () =
             <small className="notice">Letters, numbers, _ and . only (no names or emails), up to 32.</small>
           )}
         </label>
-        <label className="rs-check">
-          <input type="checkbox" checked={confirmed} disabled={!validParticipant} onChange={(e) => setConfirmed(e.target.checked)} />
-          <span>
-            This recording is participant <b>{participant || "—"}</b>
-          </span>
-        </label>
+        <div>
+          <button type="button" className="secondary" onClick={() => setParticipant(newParticipant())}>
+            New participant
+          </button>
+          <small>Ready to start with this anonymous ID. Use previous for another recording of the same person.</small>
+        </div>
         <label>
-          Condition label (optional)
+          Condition label (optional, remembered)
           <input
             value={c.condition}
             maxLength={60}
@@ -338,7 +338,7 @@ function Setup({ r, t, onStarted }: { r: R; t: Telemetry | null; onStarted: () =
         </fieldset>
       </div>
       <fieldset className="rs-electrodes">
-        <legend>Electrode map (blank = unknown)</legend>
+        <legend>Electrode map (optional, remembered; blank = unknown)</legend>
         {c.electrodes.map((e, i) => (
           <label key={i}>
             Ch {i + 1}

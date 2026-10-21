@@ -23,7 +23,7 @@ Recordings go to `data/research/` (ignored by Git). To use another default folde
 
 1. Turn on the **Research / Dev Mode** switch in the header. This only shows the recording bar. It does not start recording, change the source or start any flicker.
 2. Click **Start…** in the recording bar and fill in the setup:
-   - **Participant pseudonym** (for example `P012`). Use letters, numbers, `_` and `.` only, never a name. The field starts empty for every recording. **Use previous** refills the last pseudonym, and you must tick **This recording is participant …** each time.
+   - **Participant ID** is generated automatically when setup opens, so you can start without typing. **New participant** generates another anonymous ID; **Use previous** reuses the last recorded participant for repeat runs. You can also edit the ID. There is no extra confirmation checkbox. Storage, condition and electrode settings are remembered; unknown electrode positions may stay blank.
    - **Condition** (optional): a short label.
    - **Electrode map and reference**: leave a box blank if unknown.
    - **Storage format**: **CSV** (default), **SQLite** or **Both**.
