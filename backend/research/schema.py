@@ -222,17 +222,59 @@ TABLES: dict[str, list[tuple]] = {
 ORDER = ['acquisitions', 'calibrations', 'batches', 'eeg', 'signal_windows', 'channel_metrics',
          'input_frames', 'rounds', 'events', 'game_state', 'clock_sync']
 
+# Tables computed at export from the stored ones (never written during capture, so they take no
+# part in sinks or parity). eeg_flags has one row per eeg.csv row, in the same order.
+DERIVED: dict[str, list[tuple]] = {
+    'eeg_flags': COMMON + [
+        ('acquisition_id', 'TEXT', '', 'Stream segment (joins eeg.csv)'),
+        ('sample_index', 'INTEGER', 'sample', 'eeg.csv sample_index (row n here is row n of eeg.csv)'),
+        ('source_timestamp_s', 'REAL', 's', 'eeg.csv source_timestamp_s'),
+        ('game', 'TEXT', '', 'Game of the current or last round: cairn | garden'),
+        ('round_id', 'TEXT', '', 'Current or last round (kept after it ends; see round_active)'),
+        ('round_active', 'BOOL', '', '1 between round_started and round_ended'),
+        ('round_paused', 'BOOL', '', '1 while the round is paused (round_paused / plant_paused)'),
+        ('cairn_mode', 'TEXT', '', 'calm | go'),
+        ('cairn_stones', 'INTEGER', '', 'Stones on the cairn (from stone_placed)'),
+        ('cairn_tier', 'INTEGER', '', 'Level − 1 (every 5 stones)'),
+        ('cairn_hand_phase', 'TEXT', '', 'wait | approach | release | exit (from hand_phase_changed); empty if unknown'),
+        ('cairn_steady', 'BOOL', '', 'Steadiness gate (sway below STEADY_SWAY); empty if unknown'),
+        ('cairn_bug_active', 'BOOL', '', '1 between bug_started and bug_ended'),
+        ('cairn_bug_id', 'TEXT', '', 'Active bug effect_id'),
+        ('cairn_bug_strength', 'REAL', '0–1', 'Active bug strength'),
+        ('cairn_bug_path', 'TEXT', '', 'ground | air'),
+        ('cairn_bug_direction', 'INTEGER', '', '+1 rightward, −1 leftward'),
+        ('cairn_gust_active', 'BOOL', '', '1 between gust_started and gust_ended'),
+        ('cairn_gust_peak', 'BOOL', '', '1 while the gust is at full load (gust_peak_reached → gust_easing)'),
+        ('cairn_gust_id', 'TEXT', '', 'Active gust effect_id'),
+        ('cairn_gust_strength', 'REAL', '0–1', 'Active gust strength'),
+        ('cairn_gust_direction', 'INTEGER', '', '+1 rightward, −1 leftward'),
+        ('cairn_flicker_on', 'BOOL', '', '1 between flicker_started and flicker_ended (lantern blinking)'),
+        ('cairn_flicker_hz', 'REAL', 'Hz', 'Blink rate while flicker_on'),
+        ('cairn_flicker_id', 'TEXT', '', 'flicker_id of the blinking stretch'),
+        ('cairn_tumbling', 'BOOL', '', '1 between tumble_started and tumble_settled (collapse animation)'),
+        ('garden_growing', 'BOOL', '', '1 between growth_started and growth_stopped'),
+        ('events', 'TEXT', '', 'Semicolon list of event types placed on this sample (first sample at or after the '
+                               "event's sample_estimate)"),
+        ('event_ids', 'TEXT', '', 'Matching events.event_id values, same order'),
+    ],
+}
+EXPORT_ORDER = ORDER + list(DERIVED)
+
+
+def _defn(table):
+    return TABLES[table] if table in TABLES else DERIVED[table]
+
 
 def columns(table):
-    return [c[0] for c in TABLES[table]]
+    return [c[0] for c in _defn(table)]
 
 
 def col_types(table):
-    return [c[1] for c in TABLES[table]]
+    return [c[1] for c in _defn(table)]
 
 
 def free_flags(table):
-    return [len(c) > 4 and bool(c[4]) for c in TABLES[table]]
+    return [len(c) > 4 and bool(c[4]) for c in _defn(table)]
 
 
 FORMULA_START = ('=', '+', '-', '@', '\t', '\r')
@@ -304,15 +346,28 @@ def data_dictionary():
         '`signal_windows.window_id` → `channel_metrics.window_id` and raw `eeg` rows with the same `acquisition_id` and '
         '`sample_index` in [sample_start, sample_end).', '',
     ]
-    for t in ORDER:
-        lines += [f'## {t}.csv', '', '| Column | Type | Unit | Meaning |', '| --- | --- | --- | --- |']
-        for c in TABLES[t]:
+    for t in EXPORT_ORDER:
+        lines += [f'## {t}.csv', '']
+        if t in DERIVED:
+            lines += [FLAGS_DOC, '']
+        lines += ['| Column | Type | Unit | Meaning |', '| --- | --- | --- | --- |']
+        for c in _defn(t):
             name, typ, unit, desc = c[:4]
             lines.append(f'| `{name}` | {typ}{" (free)" if len(c) > 4 and c[4] else ""} | {unit} | {desc} |')
         lines.append('')
     lines += EVENT_DOC
     return '\n'.join(lines) + '\n'
 
+
+FLAGS_DOC = (
+    'Derived at export from events.csv; not stored during capture. One row per eeg.csv row, in the same order, so '
+    'the two files line up row for row (or join on acquisition_id + sample_index). Each event takes effect at the '
+    'first sample of its acquisition at or after its `sample_estimate`, so flags inherit that estimate\'s '
+    '`sample_uncertainty_ms`. Events with no sample estimate (no EEG yet) still update the state, which then shows '
+    'from the next placed event or acquisition. Events estimated after the last sample of their acquisition do not '
+    'appear in `events`. Interval flags (bug, gust, flicker, tumble, round) are 1 from the start event\'s sample up '
+    'to the sample before the end event\'s. Recordings made before an event type existed leave its flags empty or 0.'
+)
 
 EVENT_DOC = [
     '## Event types', '',
@@ -330,10 +385,14 @@ EVENT_DOC = [
     '| owner_visibility | browser | Recording tab hidden/visible (games pause when hidden; capture continues) |',
     '| game_switched | browser | Selected game or page changed in the recording tab |',
     '| round_started / round_paused / round_resumed / round_ended / round_progress | browser | Round lifecycle. round_started payload has settings, seed and rules; partial_start = round was already under way when capture began. round_paused.reason: paused_by_user, tab_hidden, left_game, input_unusable, session_changed. round_ended.reason is the outcome: fell_sway, fell_drop, reset, mode_change, session_change, recalibration, new_plant, settle_aborted. Rounds still open at stop get outcome capture_ended in rounds.csv |',
-    '| stone_released / stone_placed / level_changed | browser (Cairn model step) | Hand release at the top, stone count increase, level change every 5 stones (thresholds in payload) |',
-    '| bug_started / bug_ended / gust_started / gust_ended | browser (Cairn model step) | Seeded effects with effect_id, strength, direction, path, duration, forced flag. ended reason: completed, cairn_fell, or the round outcome that interrupted it |',
-    '| flicker_setting_changed / flicker_started / flicker_ended | browser | 15 Hz lantern flicker requested setting, and actual blinking stretches (frame-callback times; optical onset unverified). ended reason: bug_ended, paused, setting_off, reduced_motion, cairn_fell, round_reset, round_ended |',
+    '| stone_released / stone_placed / level_changed | browser (Cairn model step) | Hand release at the top, stone count increase (with tilt, sway, thresholds, gust load, focus, unrest, score, active effect and seconds since the last stone), level change every 5 stones |',
+    '| hand_phase_changed | browser (Cairn model step) | Hand moved between wait, approach, release and exit (old/new phase, stone index) |',
+    '| steadiness_changed | browser (Cairn model step) | Sway crossed STEADY_SWAY. payload.steady; hand_held = calm-mode hand stopped mid-descent because the cairn is unsteady |',
+    '| bug_started / bug_ended / gust_started / gust_ended | browser (Cairn model step) | Seeded effects with effect_id, strength, direction, path, duration, forced flag. bug_started: flicker_requested, flashing (settings call for blinking) and flicker_hz; bug_ended: flashed, flicker_hz, flickered_ms, flicker_stretches; gust_ended: peak_gust_load and when. ended reason: completed, replaced (forced effect), cairn_fell, or the round outcome that interrupted it |',
+    '| gust_peak_reached / gust_easing | browser (Cairn model step) | A gust reached full load (25% of its duration) and began easing off (60%) |',
+    '| flicker_setting_changed / flicker_started / flicker_ended | browser | Lantern flicker requested setting, and actual blinking stretches (frame-callback times; optical onset unverified) with hz, the square-wave formula that rebuilds the on/off state of every frame, duration and cycle count. ended reason: bug_ended, paused, setting_off, reduced_motion, cairn_fell, round_reset, round_ended, stage_unmounted |',
     '| cairn_fell | browser (Cairn model step) | Fall: cause sway or drop, tilt/sway and both thresholds at that step, active effect, trigger input frame. Mechanics only, not a cause in the participant |',
+    '| tumble_started / tumble_settled | browser (Cairn animation frame) | Render onset of the collapse after cairn_fell (stones tumbling, direction, whether the dropped stone joined) and the stones coming to rest. They follow round_ended and carry the id of the fallen round |',
     '| plant_started / plant_ended / plant_paused / plant_resumed | browser | Garden plant lifecycle (plant_ended payload has the plant summary) |',
     '| settle_started / settle_phase_changed / settle_completed / settle_interrupted | browser | Settle-in intro; interrupted reason skipped_by_user (plant follows) or why it was abandoned |',
     '| growth_started / growth_stopped | browser (Garden model gate) | Growth drive became non-zero / stopped. stopped reason: score_at_or_below_baseline, full_growth, input_unusable, paused_by_user, tab_hidden, left_game, session_changed, or a reset reason |',

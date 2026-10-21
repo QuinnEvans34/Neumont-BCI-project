@@ -27,6 +27,7 @@ from backend.continuity import CounterTracker, timestamp_problem
 import hashlib
 from backend.research.recorder import ResearchRecorder, Conflict as ResearchConflict, Forbidden as ResearchForbidden
 from backend.research.store import Store as ResearchStore
+from backend.visualizer import visualizer_router
 
 RECORDINGS = Path(os.environ.get('BCI_RECORDINGS_DIR', str(Path.home() / 'Documents/OpenBCI_GUI/Recordings'))).resolve()
 CYTON = BoardIds.CYTON_BOARD.value
@@ -485,6 +486,10 @@ async def lifespan(app):
         service.research.wait_finished(10)
 
 app = FastAPI(title='Brain Balance input service', lifespan=lifespan)
+app.include_router(visualizer_router(research_store, {
+    'configured': RECORDINGS,
+    'project': Path(__file__).resolve().parents[1] / 'data' / 'recordings',
+}, service.experiments))
 app.add_middleware(CORSMiddleware,allow_origins=['http://127.0.0.1:5173','http://localhost:5173'],allow_methods=['GET','POST'],allow_headers=['Content-Type'])
 class ConnectRequest(BaseModel):
     source: Literal['synthetic','replay','live','simulated_eeg']

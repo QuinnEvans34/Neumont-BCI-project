@@ -16,7 +16,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from backend.research import schema
+from backend.research import flags, schema
 from backend.research.destinations import Destinations, now_iso
 
 FINAL_STATES = {'saved', 'incomplete', 'failed', 'recovered_incomplete'}
@@ -74,6 +74,26 @@ class Reader:
                 d = dict(zip(cols, row))
                 if where is None or where(d):
                     yield d
+        finally:
+            db.close()
+
+    def columns_of(self, table, names):
+        """Yield typed tuples of just `names`, in stored order (cheaper than rows() for eeg)."""
+        cols = schema.columns(table)
+        types = schema.col_types(table)
+        pos = [cols.index(n) for n in names]
+        if self.has_csv and (self.folder / f'{table}.csv').exists():
+            with open(self.folder / f'{table}.csv', encoding='utf-8', newline='') as f:
+                f.readline()  # header
+                complete = (line for line in f if line.endswith('\n'))  # drop a truncated tail
+                for vals in csv.reader(complete):
+                    if len(vals) == len(cols):
+                        yield tuple(parse(vals[i], types[i]) for i in pos)
+            return
+        db = sqlite3.connect(f'file:{self.db_path}?mode=ro', uri=True)
+        try:
+            sel = ', '.join(f'"{n}"' for n in names)
+            yield from db.execute(f'SELECT {sel} FROM "{table}" ORDER BY rowid')
         finally:
             db.close()
 
@@ -272,6 +292,11 @@ class Store:
                 manifest['files'][f'{t}.csv'] = dict(rows=max(0, data.count(b'\n') - 1), bytes=len(data),
                                                      sha256=hashlib.sha256(data).hexdigest(),
                                                      truncated_tail_dropped=truncated)
+            data = flags.csv_bytes(reader)
+            z.writestr(f'{name}/{flags.TABLE}.csv', data)
+            manifest['files'][f'{flags.TABLE}.csv'] = dict(rows=max(0, data.count(b'\n') - 1), bytes=len(data),
+                                                           sha256=hashlib.sha256(data).hexdigest(),
+                                                           derived_from=['events.csv', 'acquisitions.csv', 'eeg.csv'])
             shared = {k: v for k, v in meta.items() if k not in PRIVATE_META_KEYS}
             md = json.dumps(shared, indent=2).encode('utf-8')
             z.writestr(f'{name}/metadata.json', md)
@@ -284,7 +309,7 @@ class Store:
 
     def table_csv(self, recording_id, table) -> tuple[bytes, str]:
         """One finalized table as portable CSV (same bytes as inside the ZIP)."""
-        if table not in schema.ORDER:
+        if table not in schema.EXPORT_ORDER:
             raise KeyError(f'Unknown table {table}')
         if self.active_id() == recording_id:
             raise PermissionError('Stop the recording before downloading.')
@@ -292,7 +317,8 @@ class Store:
         meta = read_json(folder / 'metadata.json') or {}
         if meta.get('state') not in FINAL_STATES:
             raise PermissionError('Recording is not finalized yet.')
-        data, _ = Reader(folder).csv_lines(table)
+        reader = Reader(folder)
+        data = flags.csv_bytes(reader) if table == flags.TABLE else reader.csv_lines(table)[0]
         return data, f"research-{meta.get('participant_id', 'P')}-{recording_id[:8]}-{table}.csv"
 
     def database_path(self, recording_id) -> Path:

@@ -250,6 +250,115 @@ test("cairn flicker stretches pair up and close when the round ends", () => {
   assert.equal(k.events.find((e) => e.type === "bug_ended")?.reason, "reset");
 });
 
+test("cairn bug events carry the flash rate and how long the lantern actually blinked", () => {
+  const k = sink();
+  const trace = new CairnTrace(k);
+  let s = initialCairn("calm", 12);
+  trace.newRound(s, { mode: "calm", seed: 12, flicker: true, reducedMotion: false, timeScale: 1 }, "reset", 0);
+  trace.ctx = { ...trace.ctx, running: true, flickerRequested: true };
+  s = play(trace, s, 1, () => 0.9);
+  const prev = s;
+  s = startEvent(s, "bug", 0.4, 1, "ground");
+  trace.step(prev, s, 1000);
+  const started = k.events.find((e) => e.type === "bug_started")!;
+  assert.equal(started.payload.flashing, true);
+  assert.equal(started.payload.flicker_hz, 15);
+  trace.flickerStarted(1020, s.event!, 15);
+  const fs = k.events.find((e) => e.type === "flicker_started")!;
+  assert.equal(fs.payload.hz, 15);
+  assert.equal((fs.payload.waveform as { shape: string }).shape, "square");
+  trace.flickerEnded(1520, "paused");
+  assert.equal(k.events.find((e) => e.type === "flicker_ended")!.payload.cycles, 7.5);
+  trace.flickerStarted(2000, s.event!, 15);
+  // The bug ends on a model step; its open blinking stretch is counted up to then.
+  let left = s;
+  while (left.event) {
+    const p = left;
+    left = stepCairn(left, 0.05, 0.9);
+    trace.step(p, left, 2000 + (left.elapsed - s.elapsed) * 1000);
+  }
+  const ended = k.events.find((e) => e.type === "bug_ended")!;
+  assert.equal(ended.payload.flashed, true);
+  assert.equal(ended.payload.flicker_hz, 15);
+  assert.equal(ended.payload.flicker_stretches, 2);
+  assert.ok(Math.abs(Number(ended.payload.flickered_ms) - (500 + s.event!.duration * 1000)) < 60);
+});
+
+test("cairn bug without flicker requested records no flash rate", () => {
+  const k = sink();
+  const trace = new CairnTrace(k);
+  let s = initialCairn("calm", 13);
+  trace.newRound(s, { mode: "calm", seed: 13, flicker: false, reducedMotion: false, timeScale: 1 }, "reset", 0);
+  trace.ctx = { ...trace.ctx, running: true, flickerRequested: false };
+  s = play(trace, s, 1, () => 0.9);
+  const prev = s;
+  s = startEvent(s, "bug", 0.4, 1, "air");
+  trace.step(prev, s, 1000);
+  trace.end("reset", 1100);
+  assert.equal(k.events.find((e) => e.type === "bug_started")!.payload.flicker_hz, null);
+  const ended = k.events.find((e) => e.type === "bug_ended")!;
+  assert.equal(ended.payload.flashed, false);
+  assert.equal(ended.payload.flickered_ms, 0);
+});
+
+test("cairn gusts mark their full-strength hold once and report the peak load", () => {
+  const k = sink();
+  const trace = new CairnTrace(k);
+  let s = initialCairn("calm", 21);
+  trace.newRound(s, { mode: "calm", seed: 21, flicker: false, reducedMotion: false, timeScale: 1 }, "reset", 0);
+  s = play(trace, s, 1, () => 0.95);
+  const prev = s;
+  s = startEvent(s, "gust", 0.6, -1, "ground");
+  trace.step(prev, s, 1000);
+  let t = 1000;
+  while (s.event && !s.fallen) {
+    const p = s;
+    s = stepCairn(s, 0.05, 0.95);
+    t += 50;
+    trace.step(p, s, t);
+  }
+  const types = k.events.map((e) => e.type).filter((x) => x.startsWith("gust"));
+  assert.deepEqual(types, ["gust_started", "gust_peak_reached", "gust_easing", "gust_ended"]);
+  const ended = k.events.find((e) => e.type === "gust_ended")!;
+  assert.ok(Math.abs(Number(ended.payload.peak_gust_load) - 0.6) < 0.01);
+  assert.equal(k.events.find((e) => e.type === "gust_started")!.payload.peak_push_rad_s2, 0.072);
+});
+
+test("cairn hand phases, steadiness and stone context are logged at each change", () => {
+  const k = sink();
+  const trace = new CairnTrace(k);
+  let s = initialCairn("go", 31);
+  trace.newRound(s, { mode: "go", seed: 31, flicker: false, reducedMotion: false, timeScale: 1 }, "reset", 0);
+  s = play(trace, s, 40, (t) => (t < 25 ? 0.95 : 0.3));
+  const phases = k.events.filter((e) => e.type === "hand_phase_changed");
+  assert.ok(phases.length >= 4 * s.stones - 1);
+  for (let i = 1; i < phases.length; i++) assert.equal(phases[i].payload.old_phase, phases[i - 1].payload.new_phase);
+  assert.equal(phases[0].payload.old_phase, "wait");
+  const placed = k.events.filter((e) => e.type === "stone_placed");
+  assert.ok(placed.length >= 2);
+  assert.ok(Number(placed[1].payload.seconds_since_last_stone) > 5, "go mode places a stone every 6 s");
+  for (const p of placed) assert.equal(typeof p.payload.focus, "number");
+  for (const e of k.events.filter((x) => x.type === "steadiness_changed")) assert.equal(typeof e.payload.steady, "boolean");
+  const steady = k.events.filter((e) => e.type === "steadiness_changed").map((e) => e.payload.steady);
+  for (let i = 1; i < steady.length; i++) assert.notEqual(steady[i], steady[i - 1]);
+});
+
+test("cairn tumble start and settle follow the fall with the fallen round's id", () => {
+  const k = sink();
+  const trace = new CairnTrace(k);
+  let s = initialCairn("go", 99);
+  trace.newRound(s, { mode: "go", seed: 99, flicker: false, reducedMotion: false, timeScale: 1 }, "reset", 0);
+  s = play(trace, s, 600, () => 0);
+  assert.ok(s.fallen);
+  trace.tumbleStarted(9000, { stones: s.stones, direction: 1, includesDroppedStone: false, settleSeconds: 2.6 });
+  trace.tumbleSettled(11600, 2.6);
+  const types = k.events.map((e) => e.type);
+  assert.ok(types.indexOf("tumble_started") > types.indexOf("round_ended"));
+  assert.ok(types.indexOf("tumble_settled") > types.indexOf("tumble_started"));
+  assert.equal(k.events.find((e) => e.type === "tumble_started")!.round_id, trace.roundId);
+  assert.equal(k.events.find((e) => e.type === "tumble_started")!.payload.cause, s.cause);
+});
+
 test("garden breath, audio and settings are logged only on change", () => {
   const k = sink();
   const g = new GardenTrace(k, SETTLE);

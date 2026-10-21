@@ -61,10 +61,13 @@ const TABLES = [
   "events",
   "game_state",
   "clock_sync",
+  "eeg_flags",
 ];
 
 const MOMENTS = new Set([
   "cairn_fell",
+  "bug_started",
+  "gust_started",
   "round_ended",
   "round_started",
   "full_bloom",
@@ -422,14 +425,23 @@ function Inspector({ id, moment, electrodes }: { id: string; moment: Moment; ele
   }
   if (cur) bands.push({ from: cur.from, to: t1, label: cur.kind, color: cur.kind === "gust" ? "rgba(120,170,255,.16)" : "rgba(242,201,110,.16)" });
   let flick: number | null = null;
+  let hz = "";
+  const flickBand = (from: number, to: number) =>
+    bands.push({ from, to, label: `${hz || "?"} Hz flicker`, color: "rgba(255,120,160,.18)" });
   for (const e of w.events) {
-    if (e.type === "flicker_started") flick = time(e);
+    if (e.type === "flicker_started") {
+      flick = time(e);
+      hz = String(json(e.payload_json).hz ?? "");
+    }
     if (e.type === "flicker_ended") {
-      bands.push({ from: flick ?? t0, to: time(e), label: "15 Hz flicker", color: "rgba(255,120,160,.18)" });
+      if (!hz) hz = String(json(e.payload_json).hz ?? "");
+      flickBand(flick ?? t0, time(e));
       flick = null;
     }
+    if (e.type === "tumble_started") marks.push({ t: time(e), label: "tumble", color: "#ff9a6e" });
+    if (e.type === "stone_placed") marks.push({ t: time(e), label: `stone ${String(json(e.payload_json).stones ?? "")}`, color: "#9ad1a0" });
   }
-  if (flick !== null) bands.push({ from: flick, to: t1, label: "15 Hz flicker", color: "rgba(255,120,160,.18)" });
+  if (flick !== null) flickBand(flick, t1);
 
   // Signal tracks.
   const score: Series = { label: "published score", color: "#8ff1d0", points: w.frames.map((f) => [num(f.emitted_wall_s) ?? 0, num(f.score)]), step: true };

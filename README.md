@@ -8,6 +8,12 @@ AI & Data Club's ten-week showcase project: a virtual ball-and-beam neurofeedbac
 
 ## Start here
 
+**Visualizer:** open **05 Visualizer** for live EEG and signal-quality charts,
+recorded-session inspection, spectra, game/event tracks and a table explorer.
+Compare up to four recordings or revisit the browser's Cairn/Garden round history.
+See the [Visualizer guide](docs/visualizer.md). Restart an already-running Python
+backend after updating to load the analytics endpoints.
+
 **Research / Dev Mode (implemented October 21; verified with Simulated EEG only):** a header switch shows a persistent recording bar. One recording captures a pseudonymous participant across connection, calibration, Cairn and Garden:
 
 - full-rate EEG, every 2-second signal window with per-channel metrics, and every input frame the games used;
