@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import Phaser from "phaser";
+import type { CairnTrace } from "./research/cairnTrace";
+import { research as researchLog } from "./research/logger";
 import {
   initialCairn,
   stepCairn,
@@ -64,6 +66,11 @@ export type CairnControls = {
   reducedMotion?: boolean;
   /** Development preview only: start this event now; a new `nonce` triggers it again. */
   debugEvent?: { kind: EventKind; strength: number; path: CairnEvent["path"]; nonce: number };
+  /** Research context: why ticking is blocked, and why the next reset happens. */
+  source?: string;
+  usable?: boolean;
+  blocker?: string | null;
+  resetReason?: string;
 };
 
 export type CairnView = CairnState & {
@@ -437,8 +444,11 @@ export default function CairnStage({
   onState,
   onStimulus,
   active = true,
+  trace,
 }: {
   controls: CairnControls;
+  /** Research instrumentation (observes the model; never changes it). */
+  trace?: CairnTrace;
   onState: (v: CairnView) => void;
   /** Called when a stretch of lantern blinking ends. */
   onStimulus?: (s: StageStimulus) => void;
@@ -453,6 +463,8 @@ export default function CairnStage({
   report.current = onState;
   const stimulus = useRef(onStimulus);
   stimulus.current = onStimulus;
+  const tracer = useRef(trace);
+  tracer.current = trace;
 
   useEffect(() => {
     // Render at the screen's pixel density (up to 2x) so photo detail survives on sharp displays.
@@ -617,10 +629,23 @@ export default function CairnStage({
 
       private newRound(time: number) {
         const c = current.current;
-        this.endFlicker(time);
+        this.endFlicker(time, "round_reset");
         this.round += 1;
         const seed = (Date.now() ^ (this.round * 7919)) >>> 0;
         this.sim = initialCairn(c.mode, seed);
+        tracer.current?.newRound(
+          this.sim,
+          {
+            mode: c.mode,
+            seed,
+            flicker: !!c.flicker,
+            reducedMotion: !!c.reducedMotion,
+            timeScale: c.timeScale ?? 1,
+          },
+          c.resetReason ?? "reset",
+          performance.timeOrigin + time,
+          c.reset,
+        );
         this.stack = new Stack(M, seed, SCENE);
         for (const s of [...this.stones, ...this.debris]) {
           s.img.destroy();
@@ -848,12 +873,27 @@ export default function CairnStage({
         }
         const crossing = e?.kind === "bug" && !this.sim.fallen;
         const flickering = crossing && c.running && !!c.flicker && !c.reducedMotion;
-        if (!flickering) this.endFlicker(time);
+        if (!flickering)
+          this.endFlicker(
+            time,
+            !crossing
+              ? this.sim.fallen
+                ? "cairn_fell"
+                : "bug_ended"
+              : !c.running
+                ? "paused"
+                : !c.flicker
+                  ? "setting_off"
+                  : "reduced_motion",
+          );
         if (!crossing) {
           if (this.bugFade <= 0) this.bug.setVisible(false);
           return;
         }
-        if (flickering && !this.flick) this.flick = { start: time, event: e };
+        if (flickering && !this.flick) {
+          this.flick = { start: time, event: e };
+          tracer.current?.flickerStarted(performance.timeOrigin + time, e);
+        }
         this.bug.setVisible(true).setAlpha(1);
         const view = this.cameras.main.worldView;
         // Sized against the view, so a big firefly stays big as the camera pulls back for a tall cairn.
@@ -908,8 +948,9 @@ export default function CairnStage({
       }
 
       /** Close the current stretch of blinking and log it. */
-      endFlicker(time: number) {
+      endFlicker(time: number, reason = "ended") {
         if (!this.flick) return;
+        tracer.current?.flickerEnded(performance.timeOrigin + time, reason);
         const e = this.flick.event;
         const origin = performance.timeOrigin;
         if (time > this.flick.start)
@@ -1038,22 +1079,45 @@ export default function CairnStage({
         const d = c.debugEvent;
         if (d && d.nonce !== this.debugNonce) {
           this.debugNonce = d.nonce;
-          if (!this.sim.fallen)
+          if (!this.sim.fallen) {
+            const forcedPrev = this.sim;
             this.sim = startEvent({ ...this.sim, event: null }, d.kind, d.strength, Math.random() < 0.5 ? 1 : -1, d.path);
+            tracer.current?.forcedEffect(this.sim.event!.index);
+            tracer.current?.step(forcedPrev, this.sim, performance.timeOrigin + time);
+          }
         }
         const frame = Math.min(delta / 1000, 0.1);
         const dt = frame * (c.timeScale ?? 1);
         const before = this.sim;
+        const tr = tracer.current;
+        if (tr) {
+          tr.ctx = {
+            source: c.source ?? "unknown",
+            score: c.usable ? c.score : null,
+            usable: !!c.usable,
+            running: c.running,
+            blocker: c.blocker ?? null,
+            flickerRequested: !!c.flicker,
+            flickerEffective: this.flick !== null,
+          };
+        }
         if (c.running && !before.fallen) {
           let left = dt;
+          // Browser time each bounded step represents (the frame ends at `time`).
+          const frameStart = performance.timeOrigin + time - frame * 1000;
           while (left > 1e-6 && !this.sim.fallen) {
             const h = Math.min(left, 0.05);
             const prev = this.sim;
             this.sim = stepCairn(this.sim, h, c.score);
             if (this.sim.stones > prev.stones) this.placeStone();
             left -= h;
+            tr?.step(prev, this.sim, frameStart + ((dt - left) / dt) * frame * 1000);
           }
           if (this.sim.fallen) this.startCollapse();
+        }
+        if (tr && (c.running || (this.sim.fallen && this.collapse < SETTLE_SECONDS)) && tr.started && researchLog.stateDue("cairn")) {
+          tr.ctx.flickerEffective = this.flick !== null;
+          tr.snapshot(this.sim);
         }
         if (this.sim.fallen) this.stepCollapse(frame);
         this.drawTower();
@@ -1099,7 +1163,7 @@ export default function CairnStage({
     if (host.current) observer.observe(host.current);
     return () => {
       observer.disconnect();
-      live?.endFlicker(performance.now());
+      live?.endFlicker(performance.now(), "stage_unmounted");
       instance.current = null;
       game.destroy(true);
     };

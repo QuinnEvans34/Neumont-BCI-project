@@ -7,7 +7,10 @@ import { gameInfo, isExperiment, type GameId } from "./games/catalog";
 import BilateralExperiment from "./experiments/BilateralExperiment";
 import SsvepExperiment from "./experiments/SsvepExperiment";
 import GateSlider from "./GateSlider";
-import { initialWatch, observeReference, canTick } from "./games/lifecycle";
+import { initialWatch, observeReference, canTick, tickBlocker } from "./games/lifecycle";
+import ResearchBar from "./research/ResearchBar";
+import { useResearch, useResearchMode } from "./research/useResearch";
+import { research } from "./research/logger";
 import { baselineRelation } from "./gardenSimulation";
 import { usePrefs } from "./gardenPrefs";
 import { addRound, addStimulus, useCairnRecord } from "./cairnScores";
@@ -23,6 +26,13 @@ import SignalPanel, {
 import { initialState } from "./simulation";
 import { parseFrame, isUsable, type InputFrame } from "./input";
 const API = "http://127.0.0.1:8000";
+// Development builds only: ?cairn-time-scale=N speeds up the Cairn model for
+// automated checks. Production builds ignore it; the scale is logged per round.
+const DEV_CAIRN_TIME_SCALE = (() => {
+  if (!import.meta.env.DEV || typeof location === "undefined") return undefined;
+  const v = Number(new URLSearchParams(location.search).get("cairn-time-scale"));
+  return Number.isFinite(v) && v > 0 && v <= 20 ? v : undefined;
+})();
 type Page = "setup" | "calibrate" | "choose" | "play";
 type Options = {
   recordings: string[];
@@ -62,6 +72,11 @@ export default function App() {
   const [cairnSession, setCairnSession] = useState<string | null>(null);
   const [cairnReset, setCairnReset] = useState(0);
   const [cairnRecord, updateCairnRecord] = useCairnRecord();
+  // Research / Dev Mode: why the next reset happens (logged as the old round's outcome).
+  const [cairnResetReason, setCairnResetReason] = useState("reset");
+  const [gardenResetReason, setGardenResetReason] = useState("new_plant");
+  const [researchMode, setResearchMode] = useResearchMode();
+  const researchCtl = useResearch();
   const [visible, setVisible] = useState(
     () =>
       typeof document === "undefined" || document.visibilityState === "visible",
@@ -69,7 +84,9 @@ export default function App() {
   const watch = useRef(initialWatch());
   const initialized = useRef(false);
   // Comparison reference changed: every game loses progress bound to the old baseline.
-  function invalidateGames() {
+  function invalidateGames(reason = "session_change") {
+    setCairnResetReason(reason);
+    setGardenResetReason(reason);
     setRunning(false);
     setHasRound(false);
     setRoundSession(null);
@@ -159,6 +176,11 @@ export default function App() {
           const next = parseFrame(raw);
           if (next && next.sequence > sequence) {
             sequence = next.sequence;
+            // Research logging links every game event to the frame in use.
+            research.input = {
+              acquisition_id: typeof raw.session_id === "string" ? raw.session_id : null,
+              sequence: next.sequence,
+            };
             setFrame(next);
             setReceivedAt(performance.now());
             if (raw.telemetry) {
@@ -201,6 +223,10 @@ export default function App() {
           ) ?? v,
       );
   }, [telemetry?.session_id, options.recordings]);
+  // Research log: which game/page the recording tab shows.
+  useEffect(() => {
+    research.event("game_switched", { game, payload: { game, page } });
+  }, [game, page]);
   const fresh = connected && now - receivedAt <= 2000;
   const t = fresh ? telemetry : null;
   const usable = connected && isUsable(frame, receivedAt, now);
@@ -251,7 +277,7 @@ export default function App() {
       }
       if (action === "calibrate") {
         setFrame(null);
-        invalidateGames();
+        invalidateGames("recalibration");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -297,6 +323,7 @@ export default function App() {
   function startGarden() {
     setGardenIntro(false);
     if (!usable || busy || !t?.session_id) return;
+    setGardenResetReason("new_plant");
     setGardenSession(t.session_id);
     setGardenReset((v) => v + 1);
     setGardenStarted(true);
@@ -311,6 +338,7 @@ export default function App() {
   function requestGarden() {
     if (!usable || busy || !t?.session_id) return;
     if (!gardenPrefs.settleIn) return startGarden();
+    setGardenResetReason("new_plant");
     setGardenRunning(false);
     setGardenStarted(false);
     setGardenSession(null);
@@ -325,6 +353,7 @@ export default function App() {
   function startCairn(mode?: CairnMode) {
     if (mode) updateCairnRecord((r) => ({ ...r, mode }));
     if (!usable || busy || !t?.session_id) return;
+    setCairnResetReason(mode && mode !== cairnRecord.mode ? "mode_change" : "reset");
     setCairnSession(t.session_id);
     setCairnReset((v) => v + 1);
     setCairnStarted(true);
@@ -397,6 +426,15 @@ export default function App() {
         >
           AI & DATA CLUB <span>/ BRAIN GAMES</span>
         </a>
+        <span className="header-right">
+        <button
+          className={`switch rs-toggle ${researchMode ? "on" : ""}`}
+          aria-pressed={researchMode}
+          onClick={() => setResearchMode(!researchMode)}
+          title="Show recording controls and diagnostics. Turning this on does not start recording."
+        >
+          Research / Dev Mode <i aria-hidden="true" />
+        </button>
         <span className={`source-pill ${fresh ? "online" : ""}`}>
           {fresh
             ? t?.state === "disconnected"
@@ -404,7 +442,17 @@ export default function App() {
               : sourceName(t?.source)
             : "Backend offline"}
         </span>
+        </span>
       </header>
+      <ResearchBar
+        r={researchCtl}
+        t={t}
+        usable={usable}
+        frameAgeMs={frame ? now - receivedAt : null}
+        frameSeq={frame?.sequence ?? null}
+        modeOn={researchMode}
+        setModeOn={setResearchMode}
+      />
       <nav className="steps" aria-label="Session steps">
         {(["setup", "calibrate", "choose", "play"] as Page[]).map((p, i) => (
           <button
@@ -827,6 +875,24 @@ export default function App() {
           sourceId={t?.source ?? "unknown"}
           prefs={gardenPrefs}
           muted={t?.experiment?.state === "running"}
+          usable={usable}
+          resetReason={gardenResetReason}
+          blocker={tickBlocker({
+            selected: game === "garden",
+            onPlayPage: page === "play",
+            running: gardenRunning,
+            visible,
+            usable,
+            boundSession: gardenSession,
+            telemetrySession: t?.session_id,
+          })}
+          relationDetail={{
+            relative_alpha: t?.relative_alpha ?? null,
+            baseline_center: t?.baseline_center ?? null,
+            baseline_scale: t?.baseline_scale ?? null,
+            window_id: t?.signal_chain?.window_id ?? null,
+            input: { ...research.input },
+          }}
           setPrefs={setGardenPrefs}
           relation={
             usable
@@ -884,6 +950,18 @@ export default function App() {
           sourceLabel={sourceName(t?.source)}
           sourceId={t?.source ?? "unknown"}
           record={cairnRecord}
+          timeScale={DEV_CAIRN_TIME_SCALE}
+          usable={usable}
+          resetReason={cairnResetReason}
+          blocker={tickBlocker({
+            selected: game === "cairn",
+            onPlayPage: page === "play",
+            running: cairnRunning,
+            visible,
+            usable,
+            boundSession: cairnSession,
+            telemetrySession: t?.session_id,
+          })}
           onRound={(round) => updateCairnRecord((r) => addRound(r, round))}
           onFlicker={(on) => updateCairnRecord((r) => ({ ...r, flicker: on }))}
           onStimulus={(s) => updateCairnRecord((r) => addStimulus(r, s))}

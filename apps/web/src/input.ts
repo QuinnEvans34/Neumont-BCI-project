@@ -13,6 +13,6 @@ export function parseFrame(value: unknown): InputFrame | null {
       !['good', 'poor'].includes(String(f.quality)) || typeof f.calibrated !== 'boolean') return null;
   return f as InputFrame;
 }
-export function isUsable(f: InputFrame | null, receivedAt: number, now: number) {
-  return Boolean(f && f.quality === 'good' && f.calibrated && now - receivedAt <= 2000);
+export function isUsable(f: InputFrame | null, receivedAt: number, now: number, wallNow = Date.now()) {
+  return Boolean(f && f.quality === 'good' && f.calibrated && now - receivedAt <= 2000 && wallNow - f.timestamp_ms <= 2000 && f.timestamp_ms - wallNow <= 2000);
 }

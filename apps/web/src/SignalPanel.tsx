@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ExperimentTelemetry } from "./experiments/types";
+import type { ResearchStatus } from "./research/useResearch";
 export type Recording = {
   name: string;
   samples: number;
@@ -46,6 +47,8 @@ export type Telemetry = {
     reason: string;
     std_uv: number | null;
     ptp_uv: number | null;
+    /** Relative alpha of this channel (included channels; their median is the feature). */
+    rel_alpha?: number | null;
   }[];
   waveform: (number | null)[][];
   waveform_start_sample: number;
@@ -58,6 +61,19 @@ export type Telemetry = {
   timestamp_gaps: number;
   /** Optional experiment telemetry (absent on older backends). */
   experiment?: ExperimentTelemetry | null;
+  /** Research / Dev Mode recording status (absent on older backends). */
+  research?: ResearchStatus | null;
+  /** The computation behind the latest published score. */
+  signal_chain?: {
+    window_id: number | null;
+    sample_start: number;
+    sample_end: number;
+    relative_alpha: number | null;
+    mapped_target: number | null;
+    published_score: number | null;
+    calibration_id: string | null;
+    problem: string | null;
+  } | null;
   simulation?: { gaze_hz: number | null; gaze_side: string | null } | null;
   /** Live only: samples skipped by the Cyton counter (confirmed sequence shifts). */
   counter_lost: number;
