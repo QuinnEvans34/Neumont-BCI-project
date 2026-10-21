@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from backend.signal import Calibration, feature
+from backend.signal import Calibration, analyze, feature
 
 class SignalTests(unittest.TestCase):
     def test_alpha_feature_distinguishes_frequency_and_rejects_flat_artifact(self):
@@ -11,6 +11,17 @@ class SignalTests(unittest.TestCase):
         self.assertLess(feature(beta,250), .05)
         self.assertIsNone(feature(np.zeros((1,500)),250))
         self.assertIsNone(feature(alpha * 100,250))
+
+    def test_amplitude_gate_is_adjustable_and_reports_peak_to_peak(self):
+        t = np.arange(500) / 250
+        loud = np.array([400 * np.sin(2*np.pi*10*t)])
+        self.assertIsNone(feature(loud,250))
+        value, channels = analyze(loud,250,1000)
+        self.assertGreater(value,.95)
+        self.assertTrue(channels[0]['included'])
+        self.assertAlmostEqual(channels[0]['ptp_uv'],800,delta=5)
+        _, channels = analyze(loud,250,700)
+        self.assertEqual(channels[0]['reason'],'Amplitude exceeded 700 µV peak-to-peak')
 
     def test_calibration_center_extremes_and_flat_failure(self):
         c = Calibration()
@@ -204,6 +215,23 @@ class ControlEndpointTests(unittest.TestCase):
         self.assertEqual(result.exception.status_code,400)
         self.assertEqual(s.status()['state'],'error')
         self.assertFalse(s.status()['live_verified'])
+
+    def test_gate_endpoint_moves_gate_but_not_during_baseline(self):
+        import asyncio
+        from unittest.mock import patch
+        from fastapi import HTTPException
+        from pydantic import ValidationError
+        from backend.main import Service, GateRequest, gate
+        s = Service()
+        with patch('backend.main.service',s):
+            self.assertEqual(asyncio.run(gate(GateRequest(max_ptp_uv=1200)))['gate_max_ptp_uv'],1200)
+            s.calibrating = True
+            with self.assertRaises(HTTPException) as result:
+                asyncio.run(gate(GateRequest(max_ptp_uv=800)))
+        self.assertEqual(result.exception.status_code,409)
+        self.assertEqual(s.gate_uv,1200)
+        for bad in [20,9000]:
+            with self.assertRaises(ValidationError): GateRequest(max_ptp_uv=bad)
 
     def test_cannot_start_calibration_without_eeg(self):
         import asyncio

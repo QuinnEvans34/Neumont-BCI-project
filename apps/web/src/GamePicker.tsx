@@ -1,5 +1,6 @@
 import GardenScene from "./GardenScene";
 import { GAMES, type GameId } from "./games/catalog";
+import cairnCard from "./assets/cairn/card.jpg";
 
 export type GameStatus = {
   inProgress: boolean;
@@ -22,6 +23,11 @@ function GardenIllustration() {
       />
     </div>
   );
+}
+
+function CairnIllustration() {
+  // Composed from the game's own photo cut-outs by tools/cairn_assets.
+  return <img className="game-art-photo" src={cairnCard} alt="" />;
 }
 
 function BeamIllustration() {
@@ -168,6 +174,8 @@ export default function GamePicker({
               <div className="game-art">
                 {g.id === "garden" ? (
                   <GardenIllustration />
+                ) : g.id === "cairn" ? (
+                  <CairnIllustration />
                 ) : g.id === "balance" ? (
                   <BeamIllustration />
                 ) : g.id === "bilateral" ? (

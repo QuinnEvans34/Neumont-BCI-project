@@ -33,6 +33,10 @@ export type Telemetry = {
   baseline_scale: number | null;
   baseline_start_sample: number | null;
   baseline_end_sample: number | null;
+  /** Peak-to-peak acceptance gate (µV) now applied to every window. */
+  gate_max_ptp_uv: number;
+  /** Gate in effect when the current baseline was collected. */
+  baseline_gate_uv: number | null;
   relative_alpha: number | null;
   quality: string;
   error: string | null;
@@ -41,6 +45,7 @@ export type Telemetry = {
     included: boolean;
     reason: string;
     std_uv: number | null;
+    ptp_uv: number | null;
   }[];
   waveform: (number | null)[][];
   waveform_start_sample: number;
@@ -51,11 +56,15 @@ export type Telemetry = {
   verified_samples: number;
   mismatched_samples: number;
   timestamp_gaps: number;
-  counter_gaps: number;
-  counter_duplicates: number;
   /** Optional experiment telemetry (absent on older backends). */
   experiment?: ExperimentTelemetry | null;
   simulation?: { gaze_hz: number | null; gaze_side: string | null } | null;
+  /** Live only: samples skipped by the Cyton counter (confirmed sequence shifts). */
+  counter_lost: number;
+  /** Live only: lone out-of-sequence counters (radio bit errors), not lost data. */
+  counter_corrupt: number;
+  /** Live only: counter repeated, ran backwards or restarted. */
+  counter_breaks: number;
 };
 export const duration = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60)
@@ -395,6 +404,9 @@ export default function SignalPanel({
                 <span>{c?.reason ?? "Waiting for samples"}</span>
                 <small>
                   {c?.std_uv == null ? "" : `${c.std_uv.toFixed(1)} µV SD`}
+                  {c?.ptp_uv == null
+                    ? ""
+                    : ` · ${Math.round(c.ptp_uv).toLocaleString()} µV p-p`}
                 </small>
               </div>
             );
@@ -426,12 +438,15 @@ export default function SignalPanel({
               ? "—"
               : `${t.recorded_position_seconds.toFixed(2)}s`}
           </dd>
-          <dt>Timestamp gaps encountered</dt>
-          <dd>{t?.timestamp_gaps ?? 0}</dd>
-          <dt>Cyton counter estimates (live only)</dt>
+          <dt>Timestamp pauses over 100 ms</dt>
           <dd>
-            {t?.counter_gaps ?? 0} skipped · {t?.counter_duplicates ?? 0}{" "}
-            duplicate (counter resets can affect estimates)
+            {t?.timestamp_gaps ?? 0} (bursty USB delivery; only a window
+            spanning too long counts as a gap)
+          </dd>
+          <dt>Cyton counter (live only)</dt>
+          <dd>
+            {t?.counter_lost ?? 0} samples lost · {t?.counter_corrupt ?? 0}{" "}
+            corrupted counters · {t?.counter_breaks ?? 0} repeats/restarts
           </dd>
         </dl>
       </details>

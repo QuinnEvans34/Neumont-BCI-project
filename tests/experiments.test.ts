@@ -150,12 +150,12 @@ test("bilateral: side-change units, phases and completion", () => {
   assert.equal(bilateralAt(fast, 20500).side, "right");
 });
 
-test("chooser catalog: four experiences, experiments bypass the alpha baseline", async () => {
+test("chooser catalog: five experiences, experiments bypass the alpha baseline", async () => {
   const { GAMES, isExperiment } =
     await import("../apps/web/src/games/catalog.ts");
   assert.deepEqual(
     GAMES.map((g) => g.id),
-    ["garden", "balance", "bilateral", "ssvep"],
+    ["garden", "cairn", "balance", "bilateral", "ssvep"],
   );
   for (const g of GAMES) {
     assert.equal(

@@ -296,9 +296,9 @@ export function SignalStatus({
             ? `${telemetry.measured_rate_hz} Hz`
             : "—"}
         </dd>
-        <dt>Packet gaps / duplicates</dt>
+        <dt>Lost samples / corrupt counters / breaks</dt>
         <dd>
-          {telemetry?.counter_gaps ?? 0} / {telemetry?.counter_duplicates ?? 0}
+          {telemetry?.counter_lost ?? 0} / {telemetry?.counter_corrupt ?? 0} / {telemetry?.counter_breaks ?? 0}
         </dd>
       </dl>
     </section>

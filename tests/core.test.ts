@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { initialState, step } from "../apps/web/src/simulation.ts";
 import { parseFrame, isUsable } from "../apps/web/src/input.ts";
+import { GATE_STOPS_UV, gateStop, passesGate } from "../apps/web/src/gate.ts";
 test("strong assistance survives beyond 60 seconds with no win, while weak assistance can lose", () => {
   let strong = initialState();
   let weak = initialState();
@@ -58,4 +59,19 @@ test("malformed or stale EEG cannot count as usable input", () => {
     false,
   );
   assert.equal(isUsable(parseFrame(f), 100, 200), true);
+});
+test("acceptance gate stops cover the backend range and preview channel acceptance", () => {
+  assert.equal(GATE_STOPS_UV[0], 100);
+  assert.equal(GATE_STOPS_UV.at(-1), 5000);
+  assert.ok(GATE_STOPS_UV.every((v, i) => i === 0 || v > GATE_STOPS_UV[i - 1]));
+  assert.equal(GATE_STOPS_UV[gateStop(500)], 500);
+  // A gate set between stops shows at the nearest one.
+  assert.equal(GATE_STOPS_UV[gateStop(1100)], 1000);
+  assert.equal(GATE_STOPS_UV[gateStop(99999)], 5000);
+  const ch = { std_uv: 40, ptp_uv: 720 };
+  assert.equal(passesGate(ch, 500), false);
+  assert.equal(passesGate(ch, 800), true);
+  assert.equal(passesGate({ ...ch, ptp_uv: 800 }, 800), false);
+  assert.equal(passesGate({ std_uv: 0.4, ptp_uv: 2 }, 800), false);
+  assert.equal(passesGate({ std_uv: null, ptp_uv: null }, 5000), false);
 });

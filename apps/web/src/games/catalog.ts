@@ -1,4 +1,4 @@
-export type GameId = "garden" | "balance" | "bilateral" | "ssvep";
+export type GameId = "garden" | "cairn" | "balance" | "bilateral" | "ssvep";
 
 /** What an experience needs before it can start (opening setup never needs anything). */
 export type Requirement = "calibrated-score" | "raw-eeg";
@@ -25,6 +25,16 @@ export const GAMES: GameInfo[] = [
     resume: "Return to garden",
     requires: "calibrated-score",
     requirement: "Needs a calibrated alpha baseline (or Simulation).",
+  },
+  {
+    id: "cairn",
+    kind: "game",
+    requires: "calibrated-score",
+    requirement: "Needs a calibrated alpha baseline (or Simulation).",
+    title: "Cairn",
+    blurb: "Stay focused while a hand stacks real stones on a balancing plank.",
+    cta: "Stack a cairn",
+    resume: "Return to Cairn",
   },
   {
     id: "balance",

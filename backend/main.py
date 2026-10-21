@@ -18,16 +18,19 @@ from starlette.background import BackgroundTask
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 from serial.tools import list_ports
-from backend.signal import Calibration, analyze
+from backend.signal import Calibration, analyze, DEFAULT_MAX_PTP_UV
 from backend.recordings import resolve_recording, inspect_recording, TIMESTAMP
 from backend.simulated import SimulatedBoard
 from backend.experiments import ExperimentManager, Conflict, Forbidden
 from backend import ssvep as ssvep_decoder
+from backend.continuity import CounterTracker, timestamp_problem
 
 RECORDINGS = Path(os.environ.get('BCI_RECORDINGS_DIR', str(Path.home() / 'Documents/OpenBCI_GUI/Recordings'))).resolve()
 CYTON = BoardIds.CYTON_BOARD.value
 RATE = BoardShim.get_sampling_rate(CYTON)
 CHANNELS = BoardShim.get_eeg_channels(CYTON)
+# Operator-adjustable peak-to-peak acceptance ceiling (µV) for each channel's 2-second window.
+GATE_RANGE_UV = (100.0, 5000.0)
 
 class Service:
     def __init__(self):
@@ -40,6 +43,8 @@ class Service:
         self.lock = asyncio.Lock()
         self.session_id = None
         self.experiments = ExperimentManager(RATE, len(CHANNELS))
+        # An operator setting: kept across sessions and disconnects.
+        self.gate_uv = DEFAULT_MAX_PTP_UV
         self.reset_data()
 
     def reset_data(self):
@@ -52,6 +57,7 @@ class Service:
         self.cal_error = None
         self.baseline_start_sample = None
         self.baseline_end_sample = None
+        self.baseline_gate_uv = None
         self.pending = np.empty((len(CHANNELS),0))
         self.pending_ts = np.empty(0)
         self.rejected = 0
@@ -67,10 +73,8 @@ class Service:
         self.mismatched_samples = 0
         self.timestamp_gaps = 0
         self.last_source_timestamp = None
+        self.counter = CounterTracker()
         self.last_counter = None
-        self.counter_gaps = 0
-        self.counter_duplicates = 0
-        self.counter_breaks = deque()
 
     def stop(self, reason='Input stopped or disconnected'):
         # Any experiment bound to this acquisition ends; its partial recording is kept.
@@ -150,6 +154,31 @@ class Service:
         self.pending_ts = np.empty(0)
         self.baseline_start_sample = self.total
         self.baseline_end_sample = None
+        self.baseline_gate_uv = self.gate_uv
+
+    def set_gate(self, max_ptp_uv):
+        """Move the peak-to-peak acceptance gate for live features and future baselines."""
+        if self.calibrating:
+            raise ValueError('Cannot change the acceptance gate while a baseline is being collected.')
+        low, high = GATE_RANGE_UV
+        if not (math.isfinite(max_ptp_uv) and low <= max_ptp_uv <= high):
+            raise ValueError(f'Acceptance gate must be between {low:g} and {high:g} µV.')
+        self.gate_uv = float(max_ptp_uv)
+        # Re-judge the current window now so channels reflect the gate before more samples arrive.
+        if self.buffer.shape[1]: self.update_feature()
+
+    def continuity_problem(self, end, ts):
+        """Why the samples ending at absolute index end (timestamps ts) are not continuous, or None."""
+        if self.source == 'live':
+            problem = self.counter.problem(end-len(ts), end)
+            if problem: return problem
+        return timestamp_problem(ts, RATE)
+
+    def update_feature(self):
+        self.value, self.channel_details = analyze(self.buffer,RATE,self.gate_uv)
+        if len(self.timestamps) >= RATE*2 and self.continuity_problem(self.total, self.timestamps[-RATE*2:]):
+            self.value = None
+        self.quality = 'good' if self.value is not None else 'poor'
 
     def ingest(self, data):
         """Consume every sample once. Kept independent of the SDK for regression tests."""
@@ -189,19 +218,17 @@ class Service:
         if outage: batch_breaks.append(start)
         self.last_source_timestamp = float(ts[-1])
         if self.source == 'live':
+            # Tracked by absolute sample position, so breaks across SDK reads are
+            # also excluded from spectral windows. Normal 255 -> 0 wrap is continuous.
+            self.counter.feed(start, data[0])
+            # Experiments retain strict raw-counter discontinuities independently
+            # of the game's noise-tolerant counter tracker.
             counters = data[0].astype(int)
             seq = np.r_[self.last_counter, counters] if self.last_counter is not None else counters
-            delta = np.diff(seq) % 256
-            self.counter_duplicates += int((delta == 0).sum())
-            self.counter_gaps += int(np.maximum(delta-1,0).sum())
-            # Store absolute sample positions so gaps across SDK reads are also
-            # excluded from spectral windows. Normal 255 -> 0 wrap is continuous.
             offset = 0 if self.last_counter is not None else 1
-            breaks = start + np.flatnonzero(delta != 1) + offset
-            self.counter_breaks.extend(int(i) for i in breaks)
-            batch_breaks.extend(int(i) for i in breaks)
+            batch_breaks.extend(int(start + j + offset) for j in np.flatnonzero(np.diff(seq) % 256 != 1))
             self.last_counter = int(counters[-1])
-        # Full-rate fan-out to an active experiment (recorder + analysis workers). Never blocks.
+        # Full-rate fan-out remains independent of the game acceptance gate.
         self.experiments.on_samples(start, eeg, ts, data[0], sorted(set(batch_breaks)), time.time())
         self.total += count
         self.last_packet = now
@@ -209,12 +236,7 @@ class Service:
         while self.arrivals and self.arrivals[0][0] < now-5: self.arrivals.popleft()
         self.buffer = np.concatenate((self.buffer,eeg),axis=1)[:, -RATE*10:]
         self.timestamps = np.r_[self.timestamps,ts][-RATE*10:]
-        self.value, self.channel_details = analyze(self.buffer,RATE)
-        if len(self.timestamps) >= RATE*2 and np.any((np.diff(self.timestamps[-RATE*2:]) > .1) | (np.diff(self.timestamps[-RATE*2:]) < 0)):
-            self.value = None
-        if self.counter_breaks and self.counter_breaks[-1] >= self.total-RATE*2:
-            self.value = None
-        self.quality = 'good' if self.value is not None else 'poor'
+        self.update_feature()
         self.history.append(dict(sample=self.total, value=self.value))
         if self.calibrating:
             self.pending = np.concatenate((self.pending,eeg),axis=1)
@@ -224,15 +246,11 @@ class Service:
                 window_ts = self.pending_ts[:RATE*2]
                 self.pending = self.pending[:,RATE*2:]
                 self.pending_ts = self.pending_ts[RATE*2:]
-                value, details = analyze(window,RATE)
-                window_start = self.total-self.pending.shape[1]-RATE*2
-                live_gap = any(window_start <= i < window_start+RATE*2 for i in self.counter_breaks)
-                if live_gap:
+                value, details = analyze(window,RATE,self.gate_uv)
+                problem = self.continuity_problem(self.total-self.pending.shape[1], window_ts)
+                if problem:
                     value = None
-                    reason = 'Missing or duplicated Cyton packets in baseline window'
-                elif np.any((np.diff(window_ts) > .1) | (np.diff(window_ts) < 0)):
-                    value = None
-                    reason = 'Timestamp gap or discontinuity in baseline window'
+                    reason = f'{problem} in baseline window'
                 else:
                     reason = '; '.join(f"CH{c['channel']}: {c['reason']}" for c in details if not c['included'])
                 if value is None:
@@ -249,10 +267,8 @@ class Service:
             if not self.calibrating:
                 self.pending = np.empty((len(CHANNELS),0))
                 self.pending_ts = np.empty(0)
-        # Keep only boundaries that could affect a future rolling/pending window.
-        keep_from = min(self.total-RATE*2, self.total-self.pending.shape[1])
-        while self.counter_breaks and self.counter_breaks[0] < keep_from:
-            self.counter_breaks.popleft()
+        # Keep only counter events that could affect a future rolling/pending window.
+        self.counter.prune(min(self.total-RATE*2, self.total-self.pending.shape[1]))
         if self.value is not None and self.cal.center is not None:
             self.cal.map(self.value)
 
@@ -318,12 +334,14 @@ class Service:
                     rejected_windows=self.rejected, last_rejection=self.last_rejection,
                     baseline_center=self.cal.center, baseline_scale=self.cal.scale,
                     baseline_start_sample=self.baseline_start_sample, baseline_end_sample=self.baseline_end_sample,
+                    gate_max_ptp_uv=self.gate_uv, baseline_gate_uv=self.baseline_gate_uv,
                     relative_alpha=self.value, quality=self.effective_quality(), error=self.error,
                     channels=self.channel_details, channel_std_uv=[c['std_uv'] for c in self.channel_details],
                     waveform=waves, waveform_start_sample=max(0,self.total-self.buffer.shape[1]), waveform_stride=5,
                     feature_history=list(self.history), recording=rec, recorded_position_seconds=position_ts,
                     verified_samples=self.verified_samples, mismatched_samples=self.mismatched_samples,
-                    timestamp_gaps=self.timestamp_gaps, counter_gaps=self.counter_gaps, counter_duplicates=self.counter_duplicates,
+                    timestamp_gaps=self.timestamp_gaps, counter_lost=self.counter.lost,
+                    counter_corrupt=self.counter.corrupt, counter_breaks=self.counter.breaks,
                     experiment=self.experiments.telemetry(),
                     simulation=dict(gaze_hz=self.board.gaze_hz, gaze_side=self.board.gaze_side)
                     if isinstance(self.board, SimulatedBoard) else None)
@@ -359,6 +377,8 @@ class ConnectRequest(BaseModel):
     source: Literal['synthetic','replay','live','simulated_eeg']
     recording: str = ''
     serial_port: str = ''
+class GateRequest(BaseModel):
+    max_ptp_uv: float = Field(ge=GATE_RANGE_UV[0], le=GATE_RANGE_UV[1])
 
 @app.get('/health')
 def health(): return {'status':'ok','source':service.source,'protocol_version':1}
@@ -389,6 +409,12 @@ async def disconnect():
 async def calibrate():
     async with service.lock:
         try: service.begin_calibration()
+        except ValueError as exc: raise HTTPException(409,str(exc))
+        return service.status()
+@app.post('/api/gate')
+async def gate(request: GateRequest):
+    async with service.lock:
+        try: service.set_gate(request.max_ptp_uv)
         except ValueError as exc: raise HTTPException(409,str(exc))
         return service.status()
 @app.websocket('/ws/input')
