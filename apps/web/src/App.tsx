@@ -8,6 +8,7 @@ import BilateralExperiment from "./experiments/BilateralExperiment";
 import SsvepExperiment from "./experiments/SsvepExperiment";
 import ContactCheck from "./ContactCheck";
 import ScoringChannels from "./ScoringChannels";
+import SsvepCircle from "./experiments/SsvepCircle";
 import GateSlider from "./GateSlider";
 import { initialWatch, observeReference, canTick, tickBlocker } from "./games/lifecycle";
 import ResearchBar from "./research/ResearchBar";
@@ -27,6 +28,8 @@ import SignalPanel, {
 } from "./SignalPanel";
 import { initialState } from "./simulation";
 import { parseFrame, isUsable, type InputFrame } from "./input";
+import Visualizer from "./visualizer/Visualizer";
+import { useLiveData } from "./visualizer/model";
 const API = "http://127.0.0.1:8000";
 // Development builds only: ?cairn-time-scale=N speeds up the Cairn model for
 // automated checks. Production builds ignore it; the scale is logged per round.
@@ -35,13 +38,13 @@ const DEV_CAIRN_TIME_SCALE = (() => {
   const v = Number(new URLSearchParams(location.search).get("cairn-time-scale"));
   return Number.isFinite(v) && v > 0 && v <= 20 ? v : undefined;
 })();
-type Page = "setup" | "calibrate" | "choose" | "play";
+type Page = "setup" | "calibrate" | "choose" | "play" | "visualizer";
 type Options = {
   recordings: string[];
   ports: { device: string; description: string }[];
 };
 export default function App() {
-  const [page, setPage] = useState<Page>("setup");
+  const [page, setPage] = useState<Page>(() => location.hash === "#visualizer" ? "visualizer" : "setup");
   const [source, setSource] = useState("replay");
   const [recording, setRecording] = useState("");
   const [port, setPort] = useState("");
@@ -232,6 +235,7 @@ export default function App() {
   const fresh = connected && now - receivedAt <= 2000;
   const t = fresh ? telemetry : null;
   const usable = connected && isUsable(frame, receivedAt, now);
+  const liveData = useLiveData(frame, t, usable);
   const sameSession = roundSession === t?.session_id;
   const gardenSame = gardenSession !== null && gardenSession === t?.session_id;
   const cairnSame = cairnSession !== null && cairnSession === t?.session_id;
@@ -457,12 +461,12 @@ export default function App() {
         setModeOn={setResearchMode}
       />
       <nav className="steps" aria-label="Session steps">
-        {(["setup", "calibrate", "choose", "play"] as Page[]).map((p, i) => (
+        {(["setup", "calibrate", "choose", "play", "visualizer"] as Page[]).map((p, i) => (
           <button
             key={p}
             className={page === p ? "selected" : ""}
             onClick={() => navigate(p)}
-            disabled={p !== "setup" && !t?.session_id}
+            disabled={p !== "setup" && p !== "visualizer" && !t?.session_id}
           >
             <span>0{i + 1}</span>
             {p === "setup"
@@ -471,6 +475,8 @@ export default function App() {
                 ? "Calibrate"
                 : p === "choose"
                   ? "Choose"
+                  : p === "visualizer"
+                    ? "Visualizer"
                   : isExperiment(game)
                     ? "Experiment"
                     : "Play"}
@@ -481,6 +487,10 @@ export default function App() {
         <p role="alert" className="notice error">
           {error}
         </p>
+      )}
+      {page === "visualizer" && (
+        <Visualizer telemetry={t} live={liveData} usable={usable} connected={connected}
+          frameAgeMs={frame ? now - receivedAt : null} cairnRecord={cairnRecord} />
       )}
       {page === "setup" && (
         <>
@@ -827,6 +837,11 @@ export default function App() {
                   ? "An SSVEP session is recording"
                   : "",
             },
+            ssvep_circle: {
+              inProgress: false,
+              detail: t?.experiment?.state === "running" && t.experiment.kind === "ssvep_circle"
+                ? "A circle trial is recording" : "",
+            },
           }}
           onOpen={openGame}
           onConnect={() => navigate("setup")}
@@ -848,6 +863,10 @@ export default function App() {
           connected={connected}
           onExit={() => navigate("choose")}
         />
+      )}
+      {page === "play" && game === "ssvep_circle" && (
+        <SsvepCircle telemetry={t} fresh={fresh} connected={connected}
+          onExit={() => navigate("choose")} />
       )}
       <div hidden={page !== "play" || game !== "garden"}>
         <Garden

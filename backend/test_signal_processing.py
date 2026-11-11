@@ -102,6 +102,7 @@ class ProcessingTests(unittest.TestCase):
             row = list(reader.rows('channel_metrics'))[0]
             self.assertEqual(row['relative_alpha'],.8)
             self.assertIsNone(row['hum_rms_uv'])
+            self.assertEqual(list(reader.columns_of('channel_metrics', ['relative_alpha','hum_rms_uv'])),[(.8,None)])
             self.assertEqual(list(reader.row_spans('channel_metrics',[(0,1)]))[0],row)
 
     def test_channel_endpoint_validates_and_returns_selection(self):

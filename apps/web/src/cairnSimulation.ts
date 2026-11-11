@@ -83,6 +83,11 @@ const EVENT_GAP_EASY = 24;
 const EVENT_GAP_HARD = 7;
 /** Stones at which events reach full frequency and strength. */
 export const EVENT_FULL_STONES = 25;
+/**
+ * Bug lantern blink rate. 15 Hz sits outside the 8–12 Hz alpha band that drives the game,
+ * and is an exact square wave on 60, 120 and 240 Hz displays (2, 4 or 8 frames on, then off).
+ */
+export const BUG_HZ = 15;
 const SUBSTEP = 1 / 120;
 const FOCUS_TAU = 0.6;
 const SWAY_DECAY = 0.5;
@@ -105,12 +110,16 @@ export const fallAngle = (stones: number, gust = 0) =>
 export const dropSway = (stones: number, gust = 0) =>
   UNSTEADY_SWAY * TIER_FACTOR ** tierOf(stones) * (1 - GUST_THRESHOLD * gust);
 
+/** Fractions of a gust's duration where it reaches full load and where it starts easing off. */
+export const GUST_FULL_AT = 0.25;
+export const GUST_EASE_AT = 0.6;
+
 /** A gust's current effect, 0..1: quick to arrive, a short hold, then easing off. */
 export function gustLoad(s: Pick<CairnState, "event">) {
   const e = s.event;
   if (!e || e.kind !== "gust") return 0;
   const x = e.time / e.duration;
-  return e.strength * smoothstep(0, 0.25, x) * (1 - smoothstep(0.6, 1, x));
+  return e.strength * smoothstep(0, GUST_FULL_AT, x) * (1 - smoothstep(GUST_EASE_AT, 1, x));
 }
 
 /** Steadiness drive from the published score: 0 at 0.35, 1 at 0.8 (0.5 is the baseline). */

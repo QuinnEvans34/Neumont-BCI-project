@@ -17,6 +17,7 @@ All formats represent the same logical tables. UTF-8 CSV with header, consistent
 | `events.csv` | UUID, producer sequence/ID, type, game/round ID, browser occurrence time, server receipt time, mapped sample estimate and uncertainty, active time, trigger input identity, reason and typed JSON payload |
 | `rounds.csv` | Round ID, game, mode, start/end, outcome, partial flags, duration/active time and game summary; zero-progress and abandoned rounds retained |
 | `clock_sync.csv` | Browser/server clock sample pairs, RTT, chosen offset, method/version and uncertainty; periodic resync and clock-jump events |
+| `eeg_flags.csv` | Derived at export from events (not stored): one row per `eeg.csv` row, same order, with game state flags (round active/paused, stones/tier, hand phase, steadiness, bug/gust/flicker intervals with IDs, strength and Hz, gust peak, tumble) and the event types placed on that sample (first sample at or after its `sample_estimate`) |
 | `display_frames.csv` | Optional high-volume flicker diagnostics: round/event ID, frame sequence/time, intended on/off state and interval; software timing only |
 | `metadata.json` | Schema/build/config/source/channel map, initial settings, sink statuses, row counts, completeness and known losses |
 | `data_dictionary.md` | Column meanings, units, enums, missing values and timing limitations |

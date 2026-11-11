@@ -1,4 +1,4 @@
-export type GameId = "garden" | "cairn" | "balance" | "bilateral" | "ssvep";
+export type GameId = "garden" | "cairn" | "balance" | "bilateral" | "ssvep" | "ssvep_circle";
 
 /** What an experience needs before it can start (opening setup never needs anything). */
 export type Requirement = "calibrated-score" | "raw-eeg";
@@ -68,6 +68,16 @@ export const GAMES: GameInfo[] = [
     requires: "raw-eeg",
     requirement:
       "Setup opens anytime. Needs raw EEG, posterior electrodes and a display check.",
+  },
+  {
+    id: "ssvep_circle",
+    kind: "experiment",
+    title: "SSVEP Circle",
+    blurb: "One flashing circle. Choose its color and frequency, watch channel frequencies and total alpha, and record every trial.",
+    cta: "Open setup",
+    resume: "Open setup",
+    requires: "raw-eeg",
+    requirement: "Needs fresh raw EEG and a display check. No alpha baseline required.",
   },
 ];
 

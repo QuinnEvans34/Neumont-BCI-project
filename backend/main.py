@@ -27,6 +27,7 @@ from backend.continuity import CounterTracker, timestamp_problem
 import hashlib
 from backend.research.recorder import ResearchRecorder, Conflict as ResearchConflict, Forbidden as ResearchForbidden
 from backend.research.store import Store as ResearchStore
+from backend.visualizer import visualizer_router
 
 RECORDINGS = Path(os.environ.get('BCI_RECORDINGS_DIR', str(Path.home() / 'Documents/OpenBCI_GUI/Recordings'))).resolve()
 CYTON = BoardIds.CYTON_BOARD.value
@@ -517,6 +518,10 @@ async def lifespan(app):
         service.research.wait_finished(10)
 
 app = FastAPI(title='Brain Balance input service', lifespan=lifespan)
+app.include_router(visualizer_router(research_store, {
+    'configured': RECORDINGS,
+    'project': Path(__file__).resolve().parents[1] / 'data' / 'recordings',
+}, service.experiments))
 app.add_middleware(CORSMiddleware,allow_origins=['http://127.0.0.1:5173','http://localhost:5173'],allow_methods=['GET','POST'],allow_headers=['Content-Type'])
 class ConnectRequest(BaseModel):
     source: Literal['synthetic','replay','live','simulated_eeg']
@@ -624,14 +629,21 @@ class SsvepSettings(BaseModel):
     seed: int = Field(ge=0, le=2**31)
     display: DisplayTiming
 
+class CircleSettings(BaseModel):
+    frequency_hz: float = Field(ge=1, le=30)
+    color: str = Field(pattern=r'^#[0-9a-fA-F]{6}$')
+    duration_s: int = Field(ge=5, le=600)
+    display: DisplayTiming
+
 class StartRequest(BaseModel):
-    kind: Literal['bilateral', 'ssvep']
+    kind: Literal['bilateral', 'ssvep', 'ssvep_circle']
     participant: str = Field(default='', max_length=32, pattern=r'^[A-Za-z0-9_-]*$')
     electrodes: list[str] = Field(min_length=8, max_length=8)
     reference: str = Field(default='', max_length=24)
     clock: ClockSync
     bilateral: Optional[BilateralSettings] = None
     ssvep: Optional[SsvepSettings] = None
+    ssvep_circle: Optional[CircleSettings] = None
 
 class TokenRequest(BaseModel):
     token: str = Field(max_length=64)
@@ -659,6 +671,13 @@ def validate_start(req: StartRequest):
             raise ValueError('Electrode names must be short letters/numbers (e.g. O1, Oz, PO7).')
     if req.kind == 'bilateral':
         if not req.bilateral: raise ValueError('Bilateral settings missing')
+        return
+    if req.kind == 'ssvep_circle':
+        c = req.ssvep_circle
+        if not c: raise ValueError('Circle settings missing')
+        if not c.display.passed: raise ValueError('Run the display timing check before starting.')
+        if c.frequency_hz > c.display.profile_hz / 2:
+            raise ValueError('The frequency needs at least two display frames per cycle.')
         return
     s = req.ssvep
     if not s: raise ValueError('SSVEP settings missing')

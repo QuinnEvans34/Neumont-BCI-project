@@ -10,6 +10,7 @@ import {
   gustLoad,
   RELEASE_SECONDS,
   EXIT_SECONDS,
+  BUG_HZ,
   type CairnEvent,
   type CairnMode,
   type CairnState,
@@ -83,11 +84,7 @@ export type CairnView = CairnState & {
 /** A stretch of lantern blinking, in epoch milliseconds, for lining up with EEG. */
 export type StageStimulus = Omit<CairnStimulus, "mode" | "source">;
 
-/**
- * Lantern blink rate. 15 Hz sits outside the 8–12 Hz alpha band that drives the game,
- * and is an exact square wave on 60, 120 and 240 Hz displays (2, 4 or 8 frames on, then off).
- */
-export const BUG_HZ = 15;
+export { BUG_HZ };
 
 const W = 1200;
 const H = 800;
@@ -488,6 +485,8 @@ export default function CairnStage({
       private landing: PlacedStone | null = null;
       private pose: HandFrame = "hand_open_big";
       private collapse = 0;
+      /** The collapse animation has come to rest and been logged. */
+      private tumbleSettled = false;
       private plankAngle = 0;
       private plankVelocity = 0;
       private handExit: { x: number; y: number; t: number } | null = null;
@@ -657,6 +656,7 @@ export default function CairnStage({
         this.debris = [];
         this.landing = null;
         this.collapse = 0;
+        this.tumbleSettled = false;
         this.plankAngle = 0;
         this.plankVelocity = 0;
         this.handExit = null;
@@ -695,7 +695,7 @@ export default function CairnStage({
         this.landing = null;
       }
 
-      private startCollapse() {
+      private startCollapse(time: number) {
         const sign = Math.sign(this.sim.angle || this.sim.velocity || 1);
         this.plankAngle = this.sim.angle;
         this.plankVelocity = this.sim.velocity + sign * 0.4;
@@ -729,6 +729,12 @@ export default function CairnStage({
           this.debris.push(d);
         });
         this.stones = [];
+        tracer.current?.tumbleStarted(performance.timeOrigin + time, {
+          stones: n,
+          direction: sign > 0 ? 1 : -1,
+          includesDroppedStone: this.sim.cause === "drop" && n > this.sim.stones,
+          settleSeconds: SETTLE_SECONDS,
+        });
         if (this.handGroup.visible) this.handExit = { x: this.handGroup.x, y: this.handGroup.y, t: 0 };
         if (this.bug.visible) this.bugFade = 1;
         if (!current.current.reducedMotion) {
@@ -892,7 +898,7 @@ export default function CairnStage({
         }
         if (flickering && !this.flick) {
           this.flick = { start: time, event: e };
-          tracer.current?.flickerStarted(performance.timeOrigin + time, e);
+          tracer.current?.flickerStarted(performance.timeOrigin + time, e, BUG_HZ);
         }
         this.bug.setVisible(true).setAlpha(1);
         const view = this.cameras.main.worldView;
@@ -1113,13 +1119,19 @@ export default function CairnStage({
             left -= h;
             tr?.step(prev, this.sim, frameStart + ((dt - left) / dt) * frame * 1000);
           }
-          if (this.sim.fallen) this.startCollapse();
+          if (this.sim.fallen) this.startCollapse(time);
         }
         if (tr && (c.running || (this.sim.fallen && this.collapse < SETTLE_SECONDS)) && tr.started && researchLog.stateDue("cairn")) {
           tr.ctx.flickerEffective = this.flick !== null;
           tr.snapshot(this.sim);
         }
-        if (this.sim.fallen) this.stepCollapse(frame);
+        if (this.sim.fallen) {
+          this.stepCollapse(frame);
+          if (!this.tumbleSettled && this.collapse >= SETTLE_SECONDS) {
+            this.tumbleSettled = true;
+            tracer.current?.tumbleSettled(performance.timeOrigin + time, this.collapse);
+          }
+        }
         this.drawTower();
         this.moveCamera(frame);
         this.drawBug(time, frame);

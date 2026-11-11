@@ -1,7 +1,7 @@
 // Shapes of the optional experiment telemetry added to the existing WebSocket
 // envelope (input protocol v1 and alpha semantics are unchanged).
 
-export type ExperimentKind = "bilateral" | "ssvep";
+export type ExperimentKind = "bilateral" | "ssvep" | "ssvep_circle";
 export type ExperimentMode = "live" | "replay" | "simulated";
 
 export type RecordingInfo = {
@@ -86,6 +86,15 @@ export type ChannelMetric = {
   theta?: number;
   alpha?: number;
   beta?: number;
+  dominant_hz?: number;
+};
+
+export type CircleMetrics = {
+  window: [number, number];
+  discontinuous: boolean;
+  channels: ChannelMetric[];
+  total_alpha_uv2: number | null;
+  valid_channels: number;
 };
 
 export type PhaseSummary = {

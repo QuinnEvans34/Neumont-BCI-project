@@ -52,22 +52,26 @@ export function useExperimentSession(onLost: (reason: string) => void) {
   const lost = useRef(onLost);
   lost.current = onLost;
   const sending = useRef<Promise<unknown>>(Promise.resolve());
+  const deliveryError = useRef<string | null>(null);
+  const stopping = useRef<ReturnType<typeof post> | null>(null);
 
   const flush = useCallback(() => {
     const o = ownedRef.current;
     if (!o || !queue.current.length) return sending.current;
-    const batch = queue.current.splice(0, 200);
+    const pending = queue.current.splice(0);
     // Serialize batches so event ids always arrive in order.
     sending.current = sending.current
-      .then(() =>
-        post(`/api/experiments/${o.id}/events`, {
-          token: o.token,
-          events: batch,
-        }),
-      )
+      .then(async () => {
+        for (let i = 0; i < pending.length; i += 200)
+          await post(`/api/experiments/${o.id}/events`, {
+            token: o.token,
+            events: pending.slice(i, i + 200),
+          });
+      })
       .catch((e) => {
+        deliveryError.current = `Event delivery failed: ${e.message}`;
         if (ownedRef.current === o)
-          lost.current(`Event delivery failed: ${e.message}`);
+          lost.current(deliveryError.current);
       });
     return sending.current;
   }, []);
@@ -90,12 +94,18 @@ export function useExperimentSession(onLost: (reason: string) => void) {
     (trialId: string, profileHz: number, frames: number[][]) => {
       const o = ownedRef.current;
       if (!o) return Promise.resolve();
-      return post(`/api/experiments/${o.id}/frames`, {
-        token: o.token,
-        trial_id: trialId,
-        profile_hz: profileHz,
-        frames,
-      }).catch((e) => lost.current(`Frame log failed: ${e.message}`));
+      sending.current = sending.current.then(() =>
+        post(`/api/experiments/${o.id}/frames`, {
+          token: o.token,
+          trial_id: trialId,
+          profile_hz: profileHz,
+          frames,
+        }),
+      ).catch((e) => {
+        deliveryError.current = `Frame log failed: ${e.message}`;
+        if (ownedRef.current === o) lost.current(deliveryError.current);
+      });
+      return sending.current;
     },
     [],
   );
@@ -108,26 +118,32 @@ export function useExperimentSession(onLost: (reason: string) => void) {
     ownedRef.current = o;
     nextId.current = 1;
     queue.current = [];
+    deliveryError.current = null;
+    stopping.current = null;
     setOwned(o);
     return { owned: o, clock, experiment: r.experiment };
   }, []);
 
   const stop = useCallback(
     async (reason: string, completed = false) => {
+      if (stopping.current) return stopping.current;
       const o = ownedRef.current;
       if (!o) return null;
-      await flush();
-      ownedRef.current = null;
-      setOwned(null);
-      try {
-        return await post(`/api/experiments/${o.id}/stop`, {
-          token: o.token,
-          reason,
-          completed,
-        });
-      } catch {
-        return null; // already ended server-side (idempotent from the user's view)
-      }
+      stopping.current = (async () => {
+        await flush();
+        ownedRef.current = null;
+        setOwned(null);
+        try {
+          return await post(`/api/experiments/${o.id}/stop`, {
+            token: o.token,
+            reason: deliveryError.current ?? reason,
+            completed: completed && !deliveryError.current,
+          });
+        } catch {
+          return null; // already ended server-side (idempotent from the user's view)
+        }
+      })();
+      return stopping.current;
     },
     [flush],
   );
@@ -174,16 +190,18 @@ export function useExperimentSession(onLost: (reason: string) => void) {
   // Leaving the page (unmount) always stops an owned session.
   useEffect(
     () => () => {
+      if (stopping.current) return; // an explicit stop is already draining and closing
       const o = ownedRef.current;
       if (o) {
+        const drained = flush();
         ownedRef.current = null;
-        void post(`/api/experiments/${o.id}/stop`, {
+        void drained.then(() => post(`/api/experiments/${o.id}/stop`, {
           token: o.token,
           reason: "Left the experiment page",
-        }).catch(() => {});
+        })).catch(() => {});
       }
     },
-    [],
+    [flush],
   );
 
   return { owned, start, stop, log, flush, sendFrames, freezeThresholds };
