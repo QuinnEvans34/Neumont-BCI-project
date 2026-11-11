@@ -5,9 +5,9 @@
 
 ## Startup and acquisition tick
 
-![Startup and acquisition tick](../rendered/code/backend-startup-and-acquisition-tick.svg)
+![Startup and acquisition tick](code-visuals/backend-startup-and-acquisition-tick.svg)
 
-[Open full-size SVG](../rendered/code/backend-startup-and-acquisition-tick.svg)
+[Open full-size SVG](code-visuals/backend-startup-and-acquisition-tick.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -44,9 +44,9 @@ Shutdown cancels the worker, stops the acquisition/active experiment and, if a r
 
 ## Request dispatch
 
-![Request dispatch](../rendered/code/backend-request-dispatch.svg)
+![Request dispatch](code-visuals/backend-request-dispatch.svg)
 
-[Open full-size SVG](../rendered/code/backend-request-dispatch.svg)
+[Open full-size SVG](code-visuals/backend-request-dispatch.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>

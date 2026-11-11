@@ -2,6 +2,8 @@
 
 ## 2026-11-11
 
+- Release `0.1.2` ([PR #3](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/3)): moved the 26 existing SVGs beside their map guides and the project roadmap to `project/marketing/timeline.md`, updated incoming and relative links plus exporter destinations, removed the old ignore exception, and archived the `0.1.1` overview. SVG content and the PDF atlas are unchanged.
+
 - Recorded the documentation and version-policy release `0.1.1` for `main` in [pull request #2](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/2), with a shared version overview, a [release-history entry](releases.md#release-history) and validation results. Repaired links after the final dashboard/replay-guide moves and added Git ignore exceptions for the data-flow map sources and SVGs.
 
 - Moved release rules and the documentation change log to `archive/logs/`, updating navigation, relative links and the hook installer's reference.

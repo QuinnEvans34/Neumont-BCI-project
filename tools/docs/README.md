@@ -1,6 +1,6 @@
 # Visual map exports
 
-The editable sources are in [docs/workspace/maps](../../docs/workspace/maps/README.md). The same folder contains an offline HTML viewer, a bookmarked PDF atlas and standalone SVG diagrams under `rendered/`.
+The editable sources are in [docs/workspace/maps](../../docs/workspace/maps/README.md). The same folder contains an offline HTML viewer, a bookmarked PDF atlas and `overview.svg`. Topic diagrams live beside their guides in `build/build-visuals/`, `code/code-visuals/`, `data/data-visuals/`, `flows/flows-visuals/` and `system/system-visuals/`. Regeneration writes SVGs to those locations.
 
 ## Regenerate
 

@@ -1,21 +1,21 @@
 # Current workspace version
 
-Version: 0.1.1
+Version: 0.1.2
 
 ## Overview
 
-This is the version of the current source and its documentation, matching `package.json` and both root version fields in `package-lock.json`. The production source is the version merged into `main` through a passing pull request.
+This source and documentation patch moves the 26 existing SVG maps beside their editable guides. It matches `package.json` and both root version fields in `package-lock.json`.
 
-- Adds release rules, package version checks, a local push guard, CI checks and a dashboard version/build badge.
-- Organizes documentation into workspace guides, project references and historical archives, with code-traced visual maps and offline diagram exports.
-- Applies the release checks to documentation: this declaration must match the package version, and each superseded version needs an archived overview.
-- Repairs navigation after the dashboard and release-log moves, and includes the data-flow map sources and SVGs in Git while keeping recordings ignored.
+- Places `overview.svg` at the map root and topic diagrams in `build/build-visuals/`, `code/code-visuals/`, `data/data-visuals/`, `flows/flows-visuals/` and `system/system-visuals/`.
+- Updates Markdown previews, full-size links and the offline HTML viewer to use the new locations.
+- Updates the exporter to reproduce this layout and removes the obsolete ignore exception for the old SVG data folder.
+- Moves the project roadmap to [marketing/timeline.md](../project/marketing/timeline.md) and updates its incoming and relative links.
 
 ## Release record
 
-Release date: 2026-11-11. Version `0.1.1` supersedes [0.1.0](../archive/versions/0.1.0/README.md). The documentation organization, visual exports and version-policy changes are recorded together in the [release log](../archive/logs/releases.md#release-history) and [documentation change log](../archive/logs/changelog.md).
+Release date: 2026-11-11. Version `0.1.2` supersedes [0.1.1](../archive/versions/0.1.1/README.md). See the [release log](../archive/logs/releases.md#release-history) and [documentation change log](../archive/logs/changelog.md). All 26 moved SVGs are byte-identical to their originals; the PDF atlas and Mermaid diagrams are unchanged.
 
-Release pull request: [#2 — Release v0.1.1 documentation and version policy](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/2), targeting `main` from `codex/version-rules`.
+Release pull request: [#3 - Relocate visual maps and project timeline](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/3), targeting `main`.
 
 ## Updating this document
 

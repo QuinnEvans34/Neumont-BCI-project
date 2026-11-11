@@ -5,9 +5,9 @@
 
 ## Connect to an experience
 
-![Connect to an experience](../rendered/flows/player-journey-connect-to-an-experience.svg)
+![Connect to an experience](flows-visuals/player-journey-connect-to-an-experience.svg)
 
-[Open full-size SVG](../rendered/flows/player-journey-connect-to-an-experience.svg)
+[Open full-size SVG](flows-visuals/player-journey-connect-to-an-experience.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -40,9 +40,9 @@ The map shows a common journey, not a forced page wizard: navigation can open Ch
 
 ## Per-game lifecycle
 
-![Per-game lifecycle](../rendered/flows/player-journey-per-game-lifecycle.svg)
+![Per-game lifecycle](flows-visuals/player-journey-per-game-lifecycle.svg)
 
-[Open full-size SVG](../rendered/flows/player-journey-per-game-lifecycle.svg)
+[Open full-size SVG](flows-visuals/player-journey-per-game-lifecycle.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -70,9 +70,9 @@ This is a conceptual lifecycle across the games, not a single enum in the code. 
 
 ## What interrupts what
 
-![What interrupts what](../rendered/flows/player-journey-what-interrupts-what.svg)
+![What interrupts what](flows-visuals/player-journey-what-interrupts-what.svg)
 
-[Open full-size SVG](../rendered/flows/player-journey-what-interrupts-what.svg)
+[Open full-size SVG](flows-visuals/player-journey-what-interrupts-what.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>

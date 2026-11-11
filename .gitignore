@@ -7,6 +7,5 @@ __pycache__/
 .DS_Store
 data/
 !/docs/workspace/maps/data/
-!/docs/workspace/maps/rendered/data/
 *.egg-info/
 images/dump/

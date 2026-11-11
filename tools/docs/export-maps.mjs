@@ -27,7 +27,6 @@ const browserPath = values.browser ?? [
 if (!browserPath) throw Error("Provide --browser <Chromium executable>.");
 await mkdir(path.join(temp, "pages"), { recursive: true });
 await mkdir(path.join(temp, "qa"), { recursive: true });
-await mkdir(path.join(maps, "rendered"), { recursive: true });
 
 const sourcePaths = ["README.md", "system/runtime.md", "data/signal-pipeline.md",
   "data/recording-and-review.md", "code/frontend.md", "code/backend.md",
@@ -50,8 +49,9 @@ for (const source of sourcePaths) {
     const heading = headings.at(-1)?.[1] ?? "System overview";
     const following = markdown.slice(match.index + match[0].length).replace(/^\s*<\/details>/, "").trimStart().split(/\r?\n\s*\r?\n/)[0];
     const caption = following.startsWith("|") || following.startsWith("#") ? "" : plain(following);
-    const relativeSvg = source === "README.md" ? "rendered/overview.svg"
-      : `rendered/${source.replace(/\.md$/, "")}-${slug(heading)}.svg`;
+    const sourceDirectory = path.posix.dirname(source);
+    const relativeSvg = source === "README.md" ? "overview.svg"
+      : `${sourceDirectory}/${path.posix.basename(sourceDirectory)}-visuals/${path.posix.basename(source, ".md")}-${slug(heading)}.svg`;
     diagrams.push({ source, title, heading, caption, code: match[1], relativeSvg });
   }
 }

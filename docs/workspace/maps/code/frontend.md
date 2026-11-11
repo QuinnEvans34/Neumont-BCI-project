@@ -5,9 +5,9 @@
 
 ## Entry points and component ownership
 
-![Entry points and component ownership](../rendered/code/frontend-entry-points-and-component-ownership.svg)
+![Entry points and component ownership](code-visuals/frontend-entry-points-and-component-ownership.svg)
 
-[Open full-size SVG](../rendered/code/frontend-entry-points-and-component-ownership.svg)
+[Open full-size SVG](code-visuals/frontend-entry-points-and-component-ownership.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -40,9 +40,9 @@ The normal page state is `setup`, `calibrate`, `choose`, `play` or `visualizer`.
 
 ## From a network frame to a rendered game
 
-![From a network frame to a rendered game](../rendered/code/frontend-from-a-network-frame-to-a-rendered-game.svg)
+![From a network frame to a rendered game](code-visuals/frontend-from-a-network-frame-to-a-rendered-game.svg)
 
-[Open full-size SVG](../rendered/code/frontend-from-a-network-frame-to-a-rendered-game.svg)
+[Open full-size SVG](code-visuals/frontend-from-a-network-frame-to-a-rendered-game.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -71,9 +71,9 @@ React owns navigation and controls. Mutable refs hold the latest controls/model 
 
 ## Game update loops
 
-![Game update loops](../rendered/code/frontend-game-update-loops.svg)
+![Game update loops](code-visuals/frontend-game-update-loops.svg)
 
-[Open full-size SVG](../rendered/code/frontend-game-update-loops.svg)
+[Open full-size SVG](code-visuals/frontend-game-update-loops.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>

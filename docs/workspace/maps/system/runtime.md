@@ -5,9 +5,9 @@
 
 ## Processes and connections
 
-![Processes and connections](../rendered/system/runtime-processes-and-connections.svg)
+![Processes and connections](system-visuals/runtime-processes-and-connections.svg)
 
-[Open full-size SVG](../rendered/system/runtime-processes-and-connections.svg)
+[Open full-size SVG](system-visuals/runtime-processes-and-connections.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -60,9 +60,9 @@ Vite serves the frontend in development. The frontend build produces static asse
 
 ## One producer, multiple viewers
 
-![One producer, multiple viewers](../rendered/system/runtime-one-producer-multiple-viewers.svg)
+![One producer, multiple viewers](system-visuals/runtime-one-producer-multiple-viewers.svg)
 
-[Open full-size SVG](../rendered/system/runtime-one-producer-multiple-viewers.svg)
+[Open full-size SVG](system-visuals/runtime-one-producer-multiple-viewers.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
