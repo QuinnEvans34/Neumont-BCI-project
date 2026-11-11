@@ -8,6 +8,13 @@ AI & Data Club's ten-week showcase project: a virtual ball-and-beam neurofeedbac
 
 ## Start here
 
+**SSVEP Circle:** choose **SSVEP Circle** in the experience chooser for one
+on/off circle with an in-game color picker and 1–30 Hz frequency slider. The
+bottom panel shows all eight channels' dominant frequencies and alpha powers,
+plus summed alpha power across valid channels. Every trial automatically records
+full-rate EEG, settings/changes, notes, frame timing and metrics, with ZIP export.
+See the [SSVEP Circle guide](docs/experiments/ssvep-circle.md).
+
 **Visualizer:** open **05 Visualizer** for live EEG and signal-quality charts,
 recorded-session inspection, spectra, game/event tracks and a table explorer.
 Compare up to four recordings or revisit the browser's Cairn/Garden round history.

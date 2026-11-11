@@ -1,4 +1,4 @@
-"""Descriptive per-channel window metrics for the bilateral experiment.
+"""Descriptive per-channel window metrics for observation experiments.
 
 No interpretation: these are summaries of the recorded signal (mean-removed
 RMS and spectral band powers), not relaxation, activation or treatment scores.
@@ -12,7 +12,8 @@ FLAT_STD_UV = 0.5
 MAX_PTP_UV = 500.0
 METHOD = ('2 s windows every 0.5 s; per channel: mean removed, no filter; RMS in µV; '
           'band power in µV² from a Hann-windowed one-sided periodogram (PSD × Δf summed); '
-          'theta 4–<8, alpha 8–<12, beta 12–30 Hz. Flat (≤0.5 µV SD), ≥500 µV p-p, '
+          'theta 4–<8, alpha 8–<12, beta 12–30 Hz; dominant frequency is the largest PSD bin in 1–45 Hz. '
+          'Flat (≤0.5 µV SD), ≥500 µV p-p, '
           'non-finite or packet-discontinuous windows are rejected.')
 
 
@@ -42,5 +43,7 @@ def window_metrics(window, rate):
         for name, (lo, hi) in BANDS.items():
             band = (f >= lo) & ((f <= hi) if name == 'beta' else (f < hi))
             m[name] = float(psd[band].sum() * df)
+        search = np.flatnonzero((f >= 1) & (f <= 45))
+        m['dominant_hz'] = float(f[search[np.argmax(psd[search])]])
         out.append(m)
     return out

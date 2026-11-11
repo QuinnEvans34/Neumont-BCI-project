@@ -6,6 +6,7 @@ import GamePicker from "./GamePicker";
 import { gameInfo, isExperiment, type GameId } from "./games/catalog";
 import BilateralExperiment from "./experiments/BilateralExperiment";
 import SsvepExperiment from "./experiments/SsvepExperiment";
+import SsvepCircle from "./experiments/SsvepCircle";
 import GateSlider from "./GateSlider";
 import { initialWatch, observeReference, canTick, tickBlocker } from "./games/lifecycle";
 import ResearchBar from "./research/ResearchBar";
@@ -831,6 +832,11 @@ export default function App() {
                   ? "An SSVEP session is recording"
                   : "",
             },
+            ssvep_circle: {
+              inProgress: false,
+              detail: t?.experiment?.state === "running" && t.experiment.kind === "ssvep_circle"
+                ? "A circle trial is recording" : "",
+            },
           }}
           onOpen={openGame}
           onConnect={() => navigate("setup")}
@@ -852,6 +858,10 @@ export default function App() {
           connected={connected}
           onExit={() => navigate("choose")}
         />
+      )}
+      {page === "play" && game === "ssvep_circle" && (
+        <SsvepCircle telemetry={t} fresh={fresh} connected={connected}
+          onExit={() => navigate("choose")} />
       )}
       <div hidden={page !== "play" || game !== "garden"}>
         <Garden

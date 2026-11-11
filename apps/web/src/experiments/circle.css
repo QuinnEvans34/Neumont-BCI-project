@@ -1,0 +1,39 @@
+.circle-stage { border: 1px solid #29434a; border-radius: 22px; overflow: hidden; background: #070f12; margin: 24px 0; }
+.circle-canvas { display: block; width: 100%; height: clamp(240px, 38vh, 500px); }
+.circle-controls { display: flex; align-items: center; gap: 28px; padding: 22px 26px; background: #102226; border-top: 1px solid #29434a; flex-wrap: wrap; }
+.circle-controls label { display: block; font-size: 13px; color: #bad1d0; }
+.circle-frequency { flex: 1; min-width: 220px; }
+.circle-frequency strong { float: right; color: #b9c9ff; font-variant-numeric: tabular-nums; }
+.circle-frequency input { display: block; width: 100%; margin: 14px 0 4px; accent-color: #9db4ff; }
+.circle-range-labels { display: flex; justify-content: space-between; color: #8ca7aa; font-size: 11px; }
+.circle-color input { display: block; width: 62px; height: 34px; padding: 2px; margin: 8px 0 4px; cursor: pointer; background: transparent; border: 1px solid #486069; border-radius: 6px; }
+.circle-color code { color: #8ca7aa; font-size: 11px; }
+.circle-timing { display: grid; gap: 6px; font-variant-numeric: tabular-nums; }
+.circle-timing small, .circle-alpha small { color: #8ca7aa; font-size: 11px; }
+.circle-timing strong { font-size: 22px; color: #d0dcff; }
+.circle-controls .circle-stop { background: #a14843; color: white; margin: 0; }
+.circle-setup { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.circle-setup .exp-panel { min-width: 0; }
+.circle-fields { border: 0; padding: 0; margin: 0 0 16px; display: grid; gap: 14px; }
+.circle-fields label { display: grid; gap: 6px; font-size: 13px; color: #bad1d0; }
+.circle-fields input, .circle-fields textarea { width: 100%; box-sizing: border-box; border: 1px solid #355058; border-radius: 8px; background: #0b1b20; color: #d1e4e1; padding: 10px 12px; font: inherit; }
+.circle-fields textarea { resize: vertical; min-height: 66px; }
+.circle-notice { font-size: 13px; line-height: 1.7; color: #e6cca1; }
+.circle-ack { display: flex; gap: 10px; align-items: start; font-size: 13px; line-height: 1.6; margin: 18px 0; }
+.circle-ack input { margin-top: 5px; accent-color: #9db4ff; }
+.circle-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.circle-actions button { margin: 0; }
+.circle-message { font-size: 13px; line-height: 1.7; color: #bad1d0; }
+.circle-readings { margin-top: 24px; }
+.circle-readings .chart-heading { align-items: start; flex-wrap: wrap; gap: 18px; }
+.circle-alpha { display: grid; gap: 6px; text-align: right; font-variant-numeric: tabular-nums; }
+.circle-alpha strong { font-size: 30px; color: #8ff1d0; }
+.circle-alpha strong span { font-size: 15px; }
+.circle-readings table { width: 100%; white-space: nowrap; }
+.circle-experiment summary { cursor: pointer; font-size: 13px; color: #bad1d0; }
+@media (max-width: 800px) {
+  .circle-setup { grid-template-columns: 1fr; }
+  .circle-controls { gap: 18px; padding: 18px; }
+  .circle-frequency { flex-basis: 100%; }
+  .circle-alpha { text-align: left; }
+}

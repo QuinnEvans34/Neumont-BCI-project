@@ -180,6 +180,11 @@ export default function GamePicker({
                   <BeamIllustration />
                 ) : g.id === "bilateral" ? (
                   <BilateralIllustration />
+                ) : g.id === "ssvep_circle" ? (
+                  <svg viewBox="0 0 220 130" aria-hidden="true">
+                    <circle cx="110" cy="60" r="32" fill="#9db4ff" />
+                    <text x="110" y="113" textAnchor="middle" fill="#8fa8ab" fontSize="12">ONE CIRCLE · YOUR FREQUENCY</text>
+                  </svg>
                 ) : (
                   <SsvepIllustration />
                 )}

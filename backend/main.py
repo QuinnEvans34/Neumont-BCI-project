@@ -587,14 +587,21 @@ class SsvepSettings(BaseModel):
     seed: int = Field(ge=0, le=2**31)
     display: DisplayTiming
 
+class CircleSettings(BaseModel):
+    frequency_hz: float = Field(ge=1, le=30)
+    color: str = Field(pattern=r'^#[0-9a-fA-F]{6}$')
+    duration_s: int = Field(ge=5, le=600)
+    display: DisplayTiming
+
 class StartRequest(BaseModel):
-    kind: Literal['bilateral', 'ssvep']
+    kind: Literal['bilateral', 'ssvep', 'ssvep_circle']
     participant: str = Field(default='', max_length=32, pattern=r'^[A-Za-z0-9_-]*$')
     electrodes: list[str] = Field(min_length=8, max_length=8)
     reference: str = Field(default='', max_length=24)
     clock: ClockSync
     bilateral: Optional[BilateralSettings] = None
     ssvep: Optional[SsvepSettings] = None
+    ssvep_circle: Optional[CircleSettings] = None
 
 class TokenRequest(BaseModel):
     token: str = Field(max_length=64)
@@ -622,6 +629,13 @@ def validate_start(req: StartRequest):
             raise ValueError('Electrode names must be short letters/numbers (e.g. O1, Oz, PO7).')
     if req.kind == 'bilateral':
         if not req.bilateral: raise ValueError('Bilateral settings missing')
+        return
+    if req.kind == 'ssvep_circle':
+        c = req.ssvep_circle
+        if not c: raise ValueError('Circle settings missing')
+        if not c.display.passed: raise ValueError('Run the display timing check before starting.')
+        if c.frequency_hz > c.display.profile_hz / 2:
+            raise ValueError('The frequency needs at least two display frames per cycle.')
         return
     s = req.ssvep
     if not s: raise ValueError('SSVEP settings missing')

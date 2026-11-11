@@ -49,6 +49,7 @@ EVENT_TYPES = {
     'bilateral': {'run_start', 'phase_start', 'phase_end', 'side', 'run_complete', 'run_interrupted'},
     'ssvep': {'block_start', 'block_end', 'break_start', 'break_end', 'trial_cue', 'stim_onset',
               'stim_offset', 'trial_rest', 'trial_interrupted', 'timing_check'},
+    'ssvep_circle': {'trial_start', 'trial_end', 'segment_start', 'segment_end'},
 }
 
 
@@ -223,7 +224,7 @@ class Analyzer:
         t = ev['type']
         if self.exp.kind == 'ssvep':
             self._ssvep_event(t, ev, alignment)
-        else:
+        elif self.exp.kind == 'bilateral':
             self._bilateral_event(t, ev, alignment)
 
     def _ssvep_event(self, t, ev, a):
@@ -409,6 +410,10 @@ class Analyzer:
                     p['boundary'] += 1
             self.windows['valid' if not disc else 'invalid'] += 1
             rec = dict(window=[end - win, end], phase=phase, discontinuous=disc, channels=m)
+            if self.exp.kind == 'ssvep_circle':
+                valid = [c for c in m if c['valid']]
+                rec.update(total_alpha_uv2=sum(c['alpha'] for c in valid) if valid else None,
+                           valid_channels=len(valid))
             self._write('metrics', rec)
             with self.lock:
                 self.published['latest'] = rec
@@ -466,6 +471,9 @@ class Analyzer:
             return dict(windows=self.windows, thresholds=self.thresholds, setup=self.published.get('setup'),
                         counts=self.counts(),
                         trials=[dict(r, requested=self.labels.get(r['trial_id'])) for r in self.results])
+        if self.exp.kind == 'ssvep_circle':
+            return dict(windows=self.windows, latest=self.published.get('latest'), method=bands.METHOD,
+                        total_alpha_definition='Sum of 8–<12 Hz power in valid channels only (µV²); null when none are valid')
         return dict(windows=self.windows, side_changes=self.sides, phases=self._phase_summary(),
                     method=bands.METHOD)
 
@@ -515,6 +523,13 @@ class Experiment:
                     timing_note='Event times are software estimates (browser clock → server clock → EEG sample). '
                                 'Optical timing is unverified: no photodiode measurement was performed.',
                     analysis_constants=ssvep.CONSTANTS if self.kind == 'ssvep' else dict(method=bands.METHOD),
+                    stimulus=(dict(shape='circle', background='#070f12', radius_fraction_of_short_side=0.19,
+                                   waveform='50% on/off square wave sampled at display frames; fractional periods have unequal frame counts',
+                                   frame_columns=['segment_frame', 't_browser_ms', 'on'],
+                                   segment_settings='segment_start events contain color, frequency, geometry and trial id',
+                                   total_alpha='Sum of valid-channel 8–<12 Hz power in µV²',
+                                   dominant_frequency='Largest PSD bin in 1–45 Hz; descriptive, not SSVEP detection')
+                              if self.kind == 'ssvep_circle' else None),
                     heartbeat=dict(interval_s=HEARTBEAT_INTERVAL_S, timeout_s=HEARTBEAT_TIMEOUT_S),
                     started_at=self.started_at, ended_at=self.ended_at, state=self.state, end_reason=self.reason)
 

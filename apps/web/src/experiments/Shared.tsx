@@ -349,7 +349,7 @@ export function RecordingPanel({
         <dd>{r.samples.toLocaleString()}</dd>
         <dt>Events</dt>
         <dd>{r.events}</dd>
-        {experiment.kind === "ssvep" && (
+        {(experiment.kind === "ssvep" || experiment.kind === "ssvep_circle") && (
           <>
             <dt>Frames logged</dt>
             <dd>{r.frames.toLocaleString()}</dd>
