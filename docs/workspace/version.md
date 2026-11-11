@@ -15,6 +15,8 @@ This is the version of the current source and its documentation, matching `packa
 
 Release date: 2026-11-11. Version `0.1.1` supersedes [0.1.0](../archive/versions/0.1.0/README.md). The documentation organization, visual exports and version-policy changes are recorded together in the [release log](../archive/logs/releases.md#release-history) and [documentation change log](../archive/logs/changelog.md).
 
+Release pull request: [#2 — Release v0.1.1 documentation and version policy](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/2), targeting `main` from `codex/version-rules`.
+
 ## Updating this document
 
 Every release, including documentation-only changes, advances the shared version under the [release rules](../archive/logs/releases.md). Before replacing this overview, preserve the outgoing version's overview in `docs/archive/versions/<version>/README.md`. Keep existing archived versions and describe the final scope of the new version here. Each version document must contain one standalone `Version: MAJOR.MINOR.PATCH` line and a nonempty `## Overview` section.

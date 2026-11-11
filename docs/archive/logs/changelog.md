@@ -2,7 +2,7 @@
 
 ## 2026-11-11
 
-- Prepared the documentation and version-policy changes as release `0.1.1` for `main`, with a shared version overview and a [release-history entry](releases.md#release-history). Repaired links after the final dashboard/replay-guide moves and added Git ignore exceptions for the data-flow map sources and SVGs.
+- Recorded the documentation and version-policy release `0.1.1` for `main` in [pull request #2](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/2), with a shared version overview, a [release-history entry](releases.md#release-history) and validation results. Repaired links after the final dashboard/replay-guide moves and added Git ignore exceptions for the data-flow map sources and SVGs.
 
 - Moved release rules and the documentation change log to `archive/logs/`, updating navigation, relative links and the hook installer's reference.
 

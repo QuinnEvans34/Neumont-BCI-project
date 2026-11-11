@@ -10,13 +10,17 @@ The dashboard header displays the version from `package.json`, build channel, br
 
 Documentation and version-policy update, superseding `0.1.0`:
 
+Release pull request: [#2](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/2), `codex/version-rules` into `main`.
+
 - Organized the documentation into workspace, project and archive homes, including dashboard guides, historical plans and dated verification records.
 - Added code-traced system/data/flow/build maps, 26 SVG diagrams, an offline HTML viewer, a PDF atlas and reproducible export tools.
 - Declared the shared source/documentation version in [workspace/version.md](../../workspace/version.md) and preserved the [0.1.0 overview](../versions/0.1.0/README.md).
 - Added package/document version enforcement, archive retention checks, a push guard, CI validation, release guidance and the dashboard build/version badge.
 - Repaired links for the final documentation layout and explicitly included the data-flow documentation in Git while keeping raw recordings ignored.
 
-Validation uses `npm run version:check-main`, `npm test`, `npm run build`, backend unit tests and a check of local Markdown links. This source release follows the pull-request workflow below; merging it does not deploy the application or activate the example GitHub protection configuration.
+Local validation: the committed-head version check passed from `0.1.0` to `0.1.1`; all 92 frontend/version-policy tests and the frontend build passed; all local links resolved across 65 Markdown documents. The existing Windows backend environment ran 112 tests with four errors: a symlink privilege failure, two locked-file cleanup failures and a legacy CSV reader test failure. Backend source is unchanged. The release requires the Linux `backend` CI check to pass alongside `frontend` and `version-policy`; their final results are attached to the release pull request.
+
+This source release follows the pull-request workflow below; merging it does not deploy the application or activate the example GitHub protection configuration.
 
 ## Make an update
 
