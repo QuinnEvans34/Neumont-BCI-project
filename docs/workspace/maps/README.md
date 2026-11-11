@@ -3,9 +3,9 @@
 [Open PDF atlas](visual-maps.pdf#page=2) | [Open in browser](visual-maps.html#diagram-1)
 Maps of the implementation in this working tree, traced on November 11, 2026. Start with the system overview, then follow a topic below. Each map displays a rendered SVG preview and links to its editable source. Open the PDF atlas or the self-contained HTML viewer above to browse every diagram directly; neither needs Mermaid support or a network connection.
 
-![System overview](rendered/overview.svg)
+![System overview](overview.svg)
 
-[Open full-size SVG](rendered/overview.svg)
+[Open full-size SVG](overview.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>

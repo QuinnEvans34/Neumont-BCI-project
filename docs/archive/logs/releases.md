@@ -6,6 +6,12 @@ The dashboard header displays the version from `package.json`, build channel, br
 
 ## Release history
 
+### 0.1.2 - 2026-11-11
+
+Moved all 26 SVG maps from `workspace/maps/rendered/` to the map root (`overview.svg`) and each topic's `<topic>-visuals/` directory. Updated guide previews, full-size SVG links, the offline HTML viewer and the exporter to use the new layout. Removed the obsolete ignore exception for the old rendered data folder.
+
+Preserved the [0.1.1 overview](../versions/0.1.1/README.md) and declared `0.1.2` in [workspace/version.md](../../workspace/version.md) and the package files. Every moved SVG matches its original bytes. Link and exporter-path checks verify the new destinations; the PDF atlas and Mermaid sources are unchanged. The release follows the same three CI checks as the prior version.
+
 ### 0.1.1 — 2026-11-11
 
 Documentation and version-policy update, superseding `0.1.0`:

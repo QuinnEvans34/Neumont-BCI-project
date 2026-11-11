@@ -5,9 +5,9 @@
 
 ## Install, run and build
 
-![Install, run and build](../rendered/build/development-and-release-install-run-and-build.svg)
+![Install, run and build](build-visuals/development-and-release-install-run-and-build.svg)
 
-[Open full-size SVG](../rendered/build/development-and-release-install-run-and-build.svg)
+[Open full-size SVG](build-visuals/development-and-release-install-run-and-build.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -47,9 +47,9 @@ There is one root npm package. The frontend's HTML/source live under `apps/web`;
 
 ## Version guard and CI paths
 
-![Version guard and CI paths](../rendered/build/development-and-release-version-guard-and-ci-paths.svg)
+![Version guard and CI paths](build-visuals/development-and-release-version-guard-and-ci-paths.svg)
 
-[Open full-size SVG](../rendered/build/development-and-release-version-guard-and-ci-paths.svg)
+[Open full-size SVG](build-visuals/development-and-release-version-guard-and-ci-paths.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -80,9 +80,9 @@ The hook runs only when installed and is local. The repository includes a [GitHu
 
 ## Build information shown in the header
 
-![Build information shown in the header](../rendered/build/development-and-release-build-information-shown-in-the-header.svg)
+![Build information shown in the header](build-visuals/development-and-release-build-information-shown-in-the-header.svg)
 
-[Open full-size SVG](../rendered/build/development-and-release-build-information-shown-in-the-header.svg)
+[Open full-size SVG](build-visuals/development-and-release-build-information-shown-in-the-header.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>

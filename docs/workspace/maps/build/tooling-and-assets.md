@@ -5,9 +5,9 @@
 
 ## Recording conversion and no-headset game testing
 
-![Recording conversion and no-headset game testing](../rendered/build/tooling-and-assets-recording-conversion-and-no-headset-game-testing.svg)
+![Recording conversion and no-headset game testing](build-visuals/tooling-and-assets-recording-conversion-and-no-headset-game-testing.svg)
 
-[Open full-size SVG](../rendered/build/tooling-and-assets-recording-conversion-and-no-headset-game-testing.svg)
+[Open full-size SVG](build-visuals/tooling-and-assets-recording-conversion-and-no-headset-game-testing.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -40,9 +40,9 @@ Keep participant recordings and private-derived traces local. A fixture's presen
 
 ## Cairn photo assets
 
-![Cairn photo assets](../rendered/build/tooling-and-assets-cairn-photo-assets.svg)
+![Cairn photo assets](build-visuals/tooling-and-assets-cairn-photo-assets.svg)
 
-[Open full-size SVG](../rendered/build/tooling-and-assets-cairn-photo-assets.svg)
+[Open full-size SVG](build-visuals/tooling-and-assets-cairn-photo-assets.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -79,9 +79,9 @@ Source: [build_cairn_assets.py](../../../../tools/cairn_assets/build_cairn_asset
 
 ## Research export inspection
 
-![Research export inspection](../rendered/build/tooling-and-assets-research-export-inspection.svg)
+![Research export inspection](build-visuals/tooling-and-assets-research-export-inspection.svg)
 
-[Open full-size SVG](../rendered/build/tooling-and-assets-research-export-inspection.svg)
+[Open full-size SVG](build-visuals/tooling-and-assets-research-export-inspection.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>

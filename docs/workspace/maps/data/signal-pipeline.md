@@ -5,9 +5,9 @@
 
 ## Acquisition and fan-out
 
-![Acquisition and fan-out](../rendered/data/signal-pipeline-acquisition-and-fan-out.svg)
+![Acquisition and fan-out](data-visuals/signal-pipeline-acquisition-and-fan-out.svg)
 
-[Open full-size SVG](../rendered/data/signal-pipeline-acquisition-and-fan-out.svg)
+[Open full-size SVG](data-visuals/signal-pipeline-acquisition-and-fan-out.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -43,9 +43,9 @@ Replay uses the file's original timestamps for continuity and position. A mismat
 
 ## Per-window processing and calibration
 
-![Per-window processing and calibration](../rendered/data/signal-pipeline-per-window-processing-and-calibration.svg)
+![Per-window processing and calibration](data-visuals/signal-pipeline-per-window-processing-and-calibration.svg)
 
-[Open full-size SVG](../rendered/data/signal-pipeline-per-window-processing-and-calibration.svg)
+[Open full-size SVG](data-visuals/signal-pipeline-per-window-processing-and-calibration.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -84,9 +84,9 @@ The mapped target is `clip(0.5 + (value - center) / (6 * scale), 0, 1)` and smoo
 
 ## Browser acceptance
 
-![Browser acceptance](../rendered/data/signal-pipeline-browser-acceptance.svg)
+![Browser acceptance](data-visuals/signal-pipeline-browser-acceptance.svg)
 
-[Open full-size SVG](../rendered/data/signal-pipeline-browser-acceptance.svg)
+[Open full-size SVG](data-visuals/signal-pipeline-browser-acceptance.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>

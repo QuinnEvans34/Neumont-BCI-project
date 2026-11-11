@@ -5,9 +5,9 @@
 
 ## Shared start and ownership
 
-![Shared start and ownership](../rendered/flows/experiments-shared-start-and-ownership.svg)
+![Shared start and ownership](flows-visuals/experiments-shared-start-and-ownership.svg)
 
-[Open full-size SVG](../rendered/flows/experiments-shared-start-and-ownership.svg)
+[Open full-size SVG](flows-visuals/experiments-shared-start-and-ownership.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -51,9 +51,9 @@ The session hook resynchronizes clocks and serializes event/frame delivery. Fail
 
 ## Three different protocols
 
-![Three different protocols](../rendered/flows/experiments-three-different-protocols.svg)
+![Three different protocols](flows-visuals/experiments-three-different-protocols.svg)
 
-[Open full-size SVG](../rendered/flows/experiments-three-different-protocols.svg)
+[Open full-size SVG](flows-visuals/experiments-three-different-protocols.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -82,9 +82,9 @@ Cards supports diagnostic evaluation that abstains when usable thresholds are un
 
 ## Where decoding happens
 
-![Where decoding happens](../rendered/flows/experiments-where-decoding-happens.svg)
+![Where decoding happens](flows-visuals/experiments-where-decoding-happens.svg)
 
-[Open full-size SVG](../rendered/flows/experiments-where-decoding-happens.svg)
+[Open full-size SVG](flows-visuals/experiments-where-decoding-happens.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>

@@ -5,9 +5,9 @@
 
 ## Research / Dev Mode capture
 
-![Research / Dev Mode capture](../rendered/data/recording-and-review-research-dev-mode-capture.svg)
+![Research / Dev Mode capture](data-visuals/recording-and-review-research-dev-mode-capture.svg)
 
-[Open full-size SVG](../rendered/data/recording-and-review-research-dev-mode-capture.svg)
+[Open full-size SVG](data-visuals/recording-and-review-research-dev-mode-capture.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -40,9 +40,9 @@ Game snapshots target about 20 Hz; transitions and events carry their own times.
 
 ## Trace one event back to EEG
 
-![Trace one event back to EEG](../rendered/data/recording-and-review-trace-one-event-back-to-eeg.svg)
+![Trace one event back to EEG](data-visuals/recording-and-review-trace-one-event-back-to-eeg.svg)
 
-[Open full-size SVG](../rendered/data/recording-and-review-trace-one-event-back-to-eeg.svg)
+[Open full-size SVG](data-visuals/recording-and-review-trace-one-event-back-to-eeg.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
@@ -68,9 +68,9 @@ These are logical joins in the recorded schema, not a claim that every storage f
 
 ## Save, recover and inspect
 
-![Save, recover and inspect](../rendered/data/recording-and-review-save-recover-and-inspect.svg)
+![Save, recover and inspect](data-visuals/recording-and-review-save-recover-and-inspect.svg)
 
-[Open full-size SVG](../rendered/data/recording-and-review-save-recover-and-inspect.svg)
+[Open full-size SVG](data-visuals/recording-and-review-save-recover-and-inspect.svg)
 
 <details>
 <summary>Editable Mermaid source</summary>
