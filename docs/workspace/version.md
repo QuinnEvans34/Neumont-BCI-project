@@ -9,10 +9,13 @@ This source and documentation patch moves the 26 existing SVG maps beside their 
 - Places `overview.svg` at the map root and topic diagrams in `build/build-visuals/`, `code/code-visuals/`, `data/data-visuals/`, `flows/flows-visuals/` and `system/system-visuals/`.
 - Updates Markdown previews, full-size links and the offline HTML viewer to use the new locations.
 - Updates the exporter to reproduce this layout and removes the obsolete ignore exception for the old SVG data folder.
+- Moves the project roadmap to [marketing/timeline.md](../project/marketing/timeline.md) and updates its incoming and relative links.
 
 ## Release record
 
 Release date: 2026-11-11. Version `0.1.2` supersedes [0.1.1](../archive/versions/0.1.1/README.md). See the [release log](../archive/logs/releases.md#release-history) and [documentation change log](../archive/logs/changelog.md). All 26 moved SVGs are byte-identical to their originals; the PDF atlas and Mermaid diagrams are unchanged.
+
+Release pull request: [#3 - Relocate visual maps and project timeline](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/3), targeting `main`.
 
 ## Updating this document
 

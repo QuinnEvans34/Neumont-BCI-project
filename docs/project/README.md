@@ -5,7 +5,7 @@ The club's goals, showcase scope, research and physical hardware information. Re
 | Document | Use it for |
 | --- | --- |
 | [MVP specification](marketing/mvp.md) | Core mechanic, visitor flow, acceptance criteria and scope boundaries. |
-| [Roadmap](roadmap.md) | Original kickoff-relative milestones and decision gates; confirm current priorities with the team. |
+| [Roadmap](marketing/timeline.md) | Original kickoff-relative milestones and decision gates; confirm current priorities with the team. |
 | [Pitch and meeting agenda](marketing/pitch.md) | Project explanation, meeting structure and showcase station. |
 | [P300 and SSVEP research](research/p300-ssvep-research.md) | Datasets, experimental approaches, timing considerations and possible applications. |
 | [Hardware configuration 1](hardware/nodeconfig1.md) | Placeholder for the team's first documented physical configuration. |

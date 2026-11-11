@@ -1,6 +1,6 @@
 # Weekend delivery and ten-week roadmap
 
-**Planning baseline:** these are the original milestones relative to project kickoff, not a current status report or dated schedule. Confirm priorities and completed work with the team against the [MVP scope](marketing/mvp.md). The [original build blueprint](../archive/plans/blueprint/blueprint.md) and [task estimates](../archive/plans/blueprint/work-breakdown.md) are archived context.
+**Planning baseline:** these are the original milestones relative to project kickoff, not a current status report or dated schedule. Confirm priorities and completed work with the team against the [MVP scope](mvp.md). The [original build blueprint](../../archive/plans/blueprint/blueprint.md) and [task estimates](../../archive/plans/blueprint/work-breakdown.md) are archived context.
 
 ## This weekend: make next meeting actionable
 

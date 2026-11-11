@@ -8,7 +8,11 @@ The dashboard header displays the version from `package.json`, build channel, br
 
 ### 0.1.2 - 2026-11-11
 
+Release pull request: [#3](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/3), `codex/visual-map-locations` into `main`.
+
 Moved all 26 SVG maps from `workspace/maps/rendered/` to the map root (`overview.svg`) and each topic's `<topic>-visuals/` directory. Updated guide previews, full-size SVG links, the offline HTML viewer and the exporter to use the new layout. Removed the obsolete ignore exception for the old rendered data folder.
+
+Moved the project roadmap to [project/marketing/timeline.md](../../project/marketing/timeline.md), updating its incoming links and links to the MVP and archived plans.
 
 Preserved the [0.1.1 overview](../versions/0.1.1/README.md) and declared `0.1.2` in [workspace/version.md](../../workspace/version.md) and the package files. Every moved SVG matches its original bytes. Link and exporter-path checks verify the new destinations; the PDF atlas and Mermaid sources are unchanged. The release follows the same three CI checks as the prior version.
 

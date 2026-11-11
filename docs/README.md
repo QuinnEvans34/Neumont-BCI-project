@@ -15,7 +15,7 @@ Documentation has three homes:
 - Check the version: [current workspace version](workspace/version.md) and [past version overviews](archive/versions/README.md).
 - Use the app: [dashboard guides](workspace/dashboard/README.md).
 - See how it works: [visual map PDF](workspace/maps/visual-maps.pdf), [offline browser viewer](workspace/maps/visual-maps.html) or [editable map guides](workspace/maps/README.md).
-- Understand the project: [MVP](project/marketing/mvp.md), [roadmap](project/roadmap.md) and [pitch](project/marketing/pitch.md).
+- Understand the project: [MVP](project/marketing/mvp.md), [roadmap](project/marketing/timeline.md) and [pitch](project/marketing/pitch.md).
 - Find earlier work: [archive index](archive/README.md).
 
 ## Where to put a document
