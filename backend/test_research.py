@@ -47,6 +47,7 @@ class Rig:
         self.dest = Destinations(self.tmp / 'research', repo=self.tmp / 'repo')
         (self.tmp / 'repo').mkdir(parents=True, exist_ok=True)
         self.s = Service()
+        self.s.set_scoring_channels(list(range(1, 9)))
         self.s.research = ResearchRecorder(RATE, 8, self.dest)
         self.store = Store(self.dest, lambda: self.s.research.rec.id if self.s.research.rec else None)
         self.fmt = fmt
@@ -152,6 +153,10 @@ class StorageTests(unittest.TestCase):
             self.assertAlmostEqual(float(last['published_score']), rig.s.cal.score, places=12)
             self.assertEqual(last['calibration_id'], cals[0]['calibration_id'])
             metrics = [m for m in read_csv(folder, 'channel_metrics') if m['window_id'] == last['window_id']]
+            self.assertTrue(all(m['selected'] == '1' for m in metrics))
+            for m, d in zip(metrics, details):
+                self.assertAlmostEqual(float(m['hum_rms_uv']), d['hum_rms_uv'], places=12)
+                self.assertAlmostEqual(float(m['raw_ptp_uv']), d['raw_ptp_uv'], places=12)
             ratios = [float(m['relative_alpha']) for m in metrics if m['included'] == '1']
             self.assertAlmostEqual(float(np.median(ratios)), value, places=12)
             frames = read_csv(folder, 'input_frames')

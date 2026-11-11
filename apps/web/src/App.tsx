@@ -6,6 +6,8 @@ import GamePicker from "./GamePicker";
 import { gameInfo, isExperiment, type GameId } from "./games/catalog";
 import BilateralExperiment from "./experiments/BilateralExperiment";
 import SsvepExperiment from "./experiments/SsvepExperiment";
+import ContactCheck from "./ContactCheck";
+import ScoringChannels from "./ScoringChannels";
 import GateSlider from "./GateSlider";
 import { initialWatch, observeReference, canTick, tickBlocker } from "./games/lifecycle";
 import ResearchBar from "./research/ResearchBar";
@@ -285,7 +287,7 @@ export default function App() {
       setBusy(false);
     }
   }
-  // Moving the gate keeps the session and baseline; games are not interrupted.
+  // Gate changes invalidate the baseline on the backend.
   async function setGate(uv: number) {
     setError("");
     try {
@@ -302,6 +304,7 @@ export default function App() {
             : "Gate value rejected",
         );
       setTelemetry(result);
+      invalidateGames("recalibration");
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -676,6 +679,7 @@ export default function App() {
                 : "Sit comfortably and inspect the signal below. Begin when you are ready; we collect 60 seconds of accepted EEG windows."}
             </p>
           </section>
+          <ContactCheck t={t} />
           <div className="calibration-layout">
             <SignalPanel telemetry={t} preview={preview} />
             <aside className="baseline">
@@ -717,6 +721,7 @@ export default function App() {
                       Last rejected window: {t.last_rejection}
                     </p>
                   )}
+                  {t && <ScoringChannels t={t} api={API} onSaved={next => { setTelemetry(next); invalidateGames("recalibration"); }} />}
                   {t?.gate_max_ptp_uv != null && (
                     <GateSlider
                       telemetry={t}
@@ -743,7 +748,7 @@ export default function App() {
                   )}
                   <button
                     className="secondary"
-                    disabled={busy || !t?.receiving_samples || t?.calibrating}
+                    disabled={busy || !t?.receiving_samples || t?.calibrating || (t?.source === "live" && !t?.scoring_channels?.length)}
                     onClick={() => void command("calibrate")}
                   >
                     {t?.calibrated || t?.calibration_error

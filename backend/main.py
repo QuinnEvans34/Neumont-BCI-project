@@ -15,10 +15,10 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictInt
 from typing import Literal, Optional
 from serial.tools import list_ports
-from backend.signal import Calibration, analyze, DEFAULT_MAX_PTP_UV
+from backend.signal import Calibration, analyze, DEFAULT_MAX_PTP_UV, PROCESSING
 from backend.recordings import resolve_recording, inspect_recording, TIMESTAMP
 from backend.simulated import SimulatedBoard
 from backend.experiments import ExperimentManager, Conflict, Forbidden
@@ -51,6 +51,7 @@ class Service:
         self.synthetic_value = .5
         # An operator setting: kept across sessions and disconnects.
         self.gate_uv = DEFAULT_MAX_PTP_UV
+        self.scoring_channels = None  # Unconfirmed montage: diagnostics only until operator selects.
         self.reset_data()
 
     def reset_data(self):
@@ -173,6 +174,8 @@ class Service:
     def begin_calibration(self):
         if not self.receiving():
             raise ValueError('Cannot calibrate without incoming EEG samples.')
+        if self.source == 'live' and self.scoring_channels is None:
+            raise ValueError('Select the back/side scoring channels before calibrating live EEG.')
         # A new comparison reference changes the session's meaning for any running experiment.
         self.experiments.interrupt('Baseline recalibration started')
         if self.calibrating and self.calibration_id:
@@ -209,10 +212,38 @@ class Service:
         if not (math.isfinite(max_ptp_uv) and low <= max_ptp_uv <= high):
             raise ValueError(f'Acceptance gate must be between {low:g} and {high:g} µV.')
         old = self.gate_uv
+        if old == max_ptp_uv: return
+        self.invalidate_baseline()
         self.gate_uv = float(max_ptp_uv)
         self.research.server_event('gate_changed', dict(old_max_ptp_uv=old, new_max_ptp_uv=self.gate_uv),
                                    acquisition_id=self.session_id)
         # Re-judge the current window now so channels reflect the gate before more samples arrive.
+        if self.buffer.shape[1]: self.update_feature()
+
+    def invalidate_baseline(self):
+        self.experiments.interrupt('Signal processing settings changed')
+        self.cal = Calibration()
+        self.active_calibration_id = None
+        self.baseline_gate_uv = None
+        self.baseline_start_sample = self.baseline_end_sample = None
+        self.last_window_id = None
+        self.calibration_id = None
+        self.cal_error = None
+        self.rejected = 0
+        self.last_rejection = None
+        self.history.clear()
+
+    def set_scoring_channels(self, channels):
+        if self.calibrating:
+            raise ValueError('Cannot change scoring channels while a baseline is being collected.')
+        if not channels or any(type(c) is not int or c < 1 or c > len(CHANNELS) for c in channels):
+            raise ValueError('Select at least one channel numbered 1–8.')
+        selected = sorted(set(channels))
+        if selected == self.scoring_channels: return
+        self.invalidate_baseline()
+        self.scoring_channels = selected
+        self.research.server_event('scoring_channels_changed', dict(channels=selected, processing=PROCESSING),
+                                   acquisition_id=self.session_id)
         if self.buffer.shape[1]: self.update_feature()
 
     def continuity_problem(self, end, ts):
@@ -223,7 +254,7 @@ class Service:
         return timestamp_problem(ts, RATE)
 
     def update_feature(self):
-        self.value, self.channel_details = analyze(self.buffer,RATE,self.gate_uv)
+        self.value, self.channel_details = analyze(self.buffer,RATE,self.gate_uv,self.scoring_channels)
         self.feature_problem = None
         if len(self.timestamps) >= RATE*2:
             problem = self.continuity_problem(self.total, self.timestamps[-RATE*2:])
@@ -302,7 +333,7 @@ class Service:
                 window_ts = self.pending_ts[:RATE*2]
                 self.pending = self.pending[:,RATE*2:]
                 self.pending_ts = self.pending_ts[RATE*2:]
-                value, details = analyze(window,RATE,self.gate_uv)
+                value, details = analyze(window,RATE,self.gate_uv,self.scoring_channels)
                 problem = self.continuity_problem(self.total-self.pending.shape[1], window_ts)
                 if problem:
                     value = None
@@ -434,6 +465,7 @@ class Service:
                     baseline_center=self.cal.center, baseline_scale=self.cal.scale,
                     baseline_start_sample=self.baseline_start_sample, baseline_end_sample=self.baseline_end_sample,
                     gate_max_ptp_uv=self.gate_uv, baseline_gate_uv=self.baseline_gate_uv,
+                    processing=PROCESSING, scoring_channels=self.scoring_channels,
                     relative_alpha=self.value, quality=self.effective_quality(), error=self.error,
                     channels=self.channel_details, channel_std_uv=[c['std_uv'] for c in self.channel_details],
                     waveform=waves, waveform_start_sample=max(0,self.total-self.buffer.shape[1]), waveform_stride=5,
@@ -490,6 +522,9 @@ class ConnectRequest(BaseModel):
     source: Literal['synthetic','replay','live','simulated_eeg']
     recording: str = ''
     serial_port: str = ''
+class ScoringChannelsRequest(BaseModel):
+    channels: list[StrictInt] = Field(min_length=1, max_length=8)
+
 class GateRequest(BaseModel):
     max_ptp_uv: float = Field(ge=GATE_RANGE_UV[0], le=GATE_RANGE_UV[1])
 
@@ -530,6 +565,13 @@ async def gate(request: GateRequest):
         try: service.set_gate(request.max_ptp_uv)
         except ValueError as exc: raise HTTPException(409,str(exc))
         return service.status()
+@app.post('/api/scoring-channels')
+async def scoring_channels(request: ScoringChannelsRequest):
+    async with service.lock:
+        try: service.set_scoring_channels(request.channels)
+        except ValueError as exc: raise HTTPException(409,str(exc))
+        return service.status()
+
 @app.websocket('/ws/input')
 async def stream(socket: WebSocket):
     await socket.accept()

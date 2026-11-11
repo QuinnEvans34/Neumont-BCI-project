@@ -19,7 +19,10 @@ class SignalTests(unittest.TestCase):
         value, channels = analyze(loud,250,1000)
         self.assertGreater(value,.95)
         self.assertTrue(channels[0]['included'])
-        self.assertAlmostEqual(channels[0]['ptp_uv'],800,delta=5)
+        self.assertAlmostEqual(channels[0]['raw_ptp_uv'],800,delta=5)
+        # Filtering includes edge transients; the gate uses the actual filtered span.
+        self.assertGreater(channels[0]['ptp_uv'],700)
+        self.assertLess(channels[0]['ptp_uv'],1000)
         _, channels = analyze(loud,250,700)
         self.assertEqual(channels[0]['reason'],'Amplitude exceeded 700 µV peak-to-peak')
 

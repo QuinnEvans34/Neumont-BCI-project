@@ -32,7 +32,7 @@ export default function GateSlider({
     }, 300);
   }
   const measured = t.channels.some((c) => c.ptp_uv != null);
-  const passing = t.channels.filter((c) => passesGate(c, gate)).length;
+  const passing = t.channels.filter((c) => c.selected !== false && passesGate(c, gate)).length;
   const stale =
     t.calibrated &&
     t.baseline_gate_uv != null &&
@@ -40,7 +40,7 @@ export default function GateSlider({
   return (
     <div className="gate">
       <label htmlFor="acceptance-gate">
-        <span>Acceptance gate</span>
+        <span>Filtered noise limit</span>
         <b>{gate.toLocaleString()} µV</b>
       </label>
       <input
@@ -62,7 +62,7 @@ export default function GateSlider({
       <p id="gate-hint" className="gate-note">
         {t.calibrating
           ? "Fixed while the baseline is collected."
-          : "A channel's 2-second window is accepted when its peak-to-peak stays under the gate."}{" "}
+          : "A selected channel must stay below this filtered peak-to-peak limit over 2 seconds. Default: 150 µV. Changing the limit clears the baseline."}{" "}
         {measured &&
           `${passing} of ${t.channels.length} channels pass at this gate now.`}
       </p>

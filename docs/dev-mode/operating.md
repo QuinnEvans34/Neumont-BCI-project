@@ -120,3 +120,67 @@ To sanity-check a ZIP (row counts, checksums, sample continuity, linkage): `pyth
 ## Development-only switch
 
 In `npm run dev` builds, `?cairn-time-scale=N` (1–20) runs the Cairn model faster for automated checks. The scale is written into every `round_started` payload, and production builds ignore it. Do not use it with participants.
+
+
+## November 11 experiment setup (signal update)
+
+The four signal/setup changes from the professor's slide are implemented. The wind,
+latency, difficulty and new distraction proposals are not part of this update.
+
+1. Restart the backend after updating; refresh the browser.
+2. Check the actual CH1–CH8 wiring against electrode locations. The 10–20 diagram
+   labels positions, not Cyton channels. Do not assume CH7/8 = O1/O2 without checking.
+3. If using OpenBCI GUI for impedance, finish and disable impedance testing, then
+   close its acquisition session before connecting this app.
+4. Start a research recording before calibration; reuse the participant ID for the
+   same person, and fill the electrode map and condition where known.
+5. Connect and open Calibrate. Check raw per-channel 60 Hz hum and compare sensors.
+   A high value is a reason to check contact/reference/bias, not a measured impedance
+   or a universal pass/fail threshold.
+6. Select the confirmed back/side channels and click **Apply scoring channels**.
+   Forehead channels can still be recorded while excluded from the game score.
+   Live baseline collection is blocked until a selection is applied. Selection lasts
+   for this backend process; confirm it again after restart or rewiring.
+7. Leave **Filtered noise limit** at 150 µV initially. This means peak-to-peak over
+   each two-second filtered window, not RMS or absolute voltage. Compare quiet,
+   blink, jaw movement and head movement segments using recording markers.
+8. Collect a fresh baseline, then play. Changing channel selection or the limit
+   invalidates the baseline and stops calibrated input until recalibration.
+9. Stop & save, download ZIP, and inspect channel_metrics.csv: selected, included,
+   reason, filtered std_uv/ptp_uv, raw_ptp_uv, and raw hum_rms_uv. eeg.csv remains raw.
+
+Processing v2 uses BrainFlow order-2 zero-phase Butterworth bandstop 58–62 Hz
+followed by bandpass 1–40 Hz on each mean-centered two-second window, with one-second
+reflection padding at both ends. Baseline and play use exactly the same function.
+There is no filter state shared across gaps. These are window estimates, not a
+continuous filtered trace; boundary transients can still reject strongly noisy
+windows. A 60 Hz sine with 100 µV peak plus 20 µV alpha is covered by regression
+checks; this is not a guarantee for every headset trace. Raw nonfinite/near-rail
+signals and filtered flatlines remain excluded. The raw near-rail check assumes
+Cyton's standard gain-24 input range.
+
+Hum is RMS from raw Hann-window PSD integrated over 59–61 Hz. The displayed raw
+waveform is not the waveform used for the filtered amplitude gate. The UI does not
+claim contact is good simply because the notch suppresses interference.
+
+New recordings use schema 2 and include processing settings in metadata.json.
+Older schema-1 recordings remain readable/exportable; their std_uv and ptp_uv
+measure RAW data and must not be compared as if they were filtered metrics.
+The relative-alpha feature is an experimental input, not a validated stress score.
+Hardware verification of this processing update is still needed at the meeting.
+
+
+### Electrode check panel
+
+Calibrate now opens with eight channel cards before the baseline controls. The
+cards distinguish missing/stale samples, sample gaps, invalid/flat/saturated
+signals, large filtered fluctuations, and raw mains interference. Channels that
+are not selected for scoring still receive the same screening. Replay and
+simulated EEG are explicitly labeled and do not verify physical headset contact.
+
+“Within signal limits” means the current two-second window passes these advisory
+checks; it is not proof of electrode contact or a completed impedance measurement.
+Raw hum at or above 10 µV RMS triggers a provisional display advisory by default.
+The threshold can be changed under “What the checks mean & how to troubleshoot”
+(5/10/20/50 µV RMS). It changes only this panel, not scoring, gating, or recordings.
+Sit still, adjust one electrode gently, and watch readings settle before baseline.

@@ -62,6 +62,8 @@ class Reader:
             r = csv.reader(io.StringIO(complete))
             next(r, None)
             for line in r:
+                if table == 'channel_metrics' and len(line) == len(cols)-3:
+                    line += ['', '', '']
                 if len(line) != len(cols):
                     continue
                 d = {c: parse(v, t) for c, v, t in zip(cols, line, types)}
@@ -94,6 +96,8 @@ class Reader:
                         break
                     if i >= spans[k][0] and line.endswith('\n'):
                         vals = next(csv.reader([line]))
+                        if table == 'channel_metrics' and len(vals) == len(cols)-3:
+                            vals += ['', '', '']
                         if len(vals) == len(cols):
                             yield {c: parse(v, t) for c, v, t in zip(cols, vals, types)}
                     i += 1
@@ -119,8 +123,12 @@ class Reader:
         out = [schema.header(table)]
         db = sqlite3.connect(f'file:{self.db_path}?mode=ro', uri=True)
         try:
-            for row in db.execute(f'SELECT * FROM "{table}" ORDER BY rowid'):
-                out.append(schema.row_line(table, row, types, frees))
+            cursor = db.execute(f'SELECT * FROM "{table}" ORDER BY rowid')
+            stored_cols = [c[0] for c in cursor.description]
+            # Preserve the original schema in exports of legacy SQLite recordings.
+            out[0] = ','.join(stored_cols)
+            for row in cursor:
+                out.append(schema.row_line(table, row, types[:len(row)], frees[:len(row)]))
         finally:
             db.close()
         return ('\n'.join(out) + '\n').encode('utf-8'), False
@@ -258,7 +266,7 @@ class Store:
             raise PermissionError('Recording is not finalized yet.')
         reader = Reader(folder)
         manifest = dict(recording_id=recording_id, participant_id=meta.get('participant_id'),
-                        schema_version=schema.SCHEMA_VERSION, state=meta.get('state'),
+                        schema_version=meta.get('schema_version', 1), state=meta.get('state'),
                         complete=meta.get('state') == 'saved', end_reason=meta.get('end_reason'),
                         losses=meta.get('losses') or [], parity=meta.get('parity'), exported_at=now_iso(),
                         storage_format=meta.get('storage_format'), files={})
@@ -275,7 +283,12 @@ class Store:
             shared = {k: v for k, v in meta.items() if k not in PRIVATE_META_KEYS}
             md = json.dumps(shared, indent=2).encode('utf-8')
             z.writestr(f'{name}/metadata.json', md)
-            dd = schema.data_dictionary().encode('utf-8')
+            dictionary = schema.data_dictionary()
+            if meta.get('schema_version', 1) == 1:
+                dictionary = ('LEGACY SCHEMA 1 RECORDING: std_uv and ptp_uv are RAW, not filtered. '
+                              'The selected, raw_ptp_uv and hum_rms_uv columns described below were not recorded. '
+                              'Use metadata.json for the original algorithm.\n\n' + dictionary)
+            dd = dictionary.encode('utf-8')
             z.writestr(f'{name}/data_dictionary.md', dd)
             for fn, b in (('metadata.json', md), ('data_dictionary.md', dd)):
                 manifest['files'][fn] = dict(bytes=len(b), sha256=hashlib.sha256(b).hexdigest())

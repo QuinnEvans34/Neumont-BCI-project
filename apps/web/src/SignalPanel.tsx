@@ -36,6 +36,8 @@ export type Telemetry = {
   baseline_end_sample: number | null;
   /** Peak-to-peak acceptance gate (µV) now applied to every window. */
   gate_max_ptp_uv: number;
+  scoring_channels?: number[] | null;
+  processing?: { version: string };
   /** Gate in effect when the current baseline was collected. */
   baseline_gate_uv: number | null;
   relative_alpha: number | null;
@@ -44,6 +46,9 @@ export type Telemetry = {
   channels: {
     channel: number;
     included: boolean;
+    selected?: boolean;
+    raw_ptp_uv?: number | null;
+    hum_rms_uv?: number | null;
     reason: string;
     std_uv: number | null;
     ptp_uv: number | null;
@@ -303,7 +308,7 @@ export default function SignalPanel({
         <>
           <div className="chart-heading">
             <span>
-              Recent EEG · CH{channel + 1} · last{" "}
+              Raw EEG · CH{channel + 1} · last{" "}
               {((values.length * 5) / 250).toFixed(1)}s
             </span>
             <span>±250 µV · mean removed{clip ? " · clipped" : ""}</span>
@@ -422,13 +427,15 @@ export default function SignalPanel({
                   {c?.std_uv == null ? "" : `${c.std_uv.toFixed(1)} µV SD`}
                   {c?.ptp_uv == null
                     ? ""
-                    : ` · ${Math.round(c.ptp_uv).toLocaleString()} µV p-p`}
+                    : ` · ${Math.round(c.ptp_uv).toLocaleString()} µV filtered p-p`}
+                  <br />60 Hz hum (raw): {c?.hum_rms_uv == null ? "—" : `${c.hum_rms_uv.toFixed(1)} µV RMS`}
                 </small>
               </div>
             );
           })}
         </div>
       )}
+      {t?.source !== "synthetic" && <p className="chart-caption">Scoring: 60 Hz notch + 1–40 Hz band-pass. Hum is measured before filtering (59–61 Hz); compare sensors and recheck contact when a channel is unusually noisy. This is not an impedance measurement. Waveforms above are raw.</p>}
       <details>
         <summary>Connection & playback evidence</summary>
         <dl>

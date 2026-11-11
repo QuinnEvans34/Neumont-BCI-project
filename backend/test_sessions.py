@@ -19,7 +19,7 @@ def block(start, count, flat=False, gain=1):
 
 
 def service():
-    s=Service();s.source='live';s.board=MagicMock();s.enabled=True;s.session_id='test-session';s.started_at=100
+    s=Service();s.set_scoring_channels(list(range(1,9)));s.source='live';s.board=MagicMock();s.enabled=True;s.session_id='test-session';s.started_at=100
     return s
 
 
@@ -74,10 +74,10 @@ class SessionTests(unittest.TestCase):
             s.ingest(block(500,500,gain=30))
             self.assertIsNone(s.value)
             self.assertEqual(s.rejected,1)
-            self.assertIn('500 µV peak-to-peak',s.last_rejection)
+            self.assertIn('150 µV peak-to-peak',s.last_rejection)
             with self.assertRaisesRegex(ValueError,'being collected'):
                 s.set_gate(2000)
-            self.assertEqual(s.gate_uv,500)
+            self.assertEqual(s.gate_uv,150)
             s.calibrating=False
             s.set_gate(2000)
             # The current window is re-judged immediately, before more samples arrive.
@@ -93,7 +93,8 @@ class SessionTests(unittest.TestCase):
             s.set_gate(500)
             status=s.status()
             self.assertEqual(status['gate_max_ptp_uv'],500)
-            self.assertEqual(status['baseline_gate_uv'],2000)
+            self.assertIsNone(status['baseline_gate_uv'])
+            self.assertFalse(status['calibrated'])
             self.assertIsNone(s.value)
             for bad in [50,6000,float('nan')]:
                 with self.assertRaisesRegex(ValueError,'between'):

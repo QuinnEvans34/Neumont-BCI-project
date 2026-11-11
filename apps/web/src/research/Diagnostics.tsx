@@ -91,8 +91,9 @@ export default function Diagnostics({
             <thead>
               <tr>
                 <th>Ch</th>
-                <th>Std µV</th>
-                <th>P-p µV</th>
+                <th>Filtered SD µV</th>
+                <th>Filtered p-p µV</th>
+                <th>Raw hum µV RMS</th>
                 <th>Rel. α</th>
                 <th>In median</th>
                 <th>Reason</th>
@@ -104,6 +105,7 @@ export default function Diagnostics({
                   <td>{labels[c.channel - 1] ?? c.channel}</td>
                   <td>{f(c.std_uv, 1)}</td>
                   <td>{f(c.ptp_uv, 1)}</td>
+                  <td>{f(c.hum_rms_uv, 1)}</td>
                   <td>{f(c.rel_alpha ?? null)}</td>
                   <td>{c.included ? "yes" : "no"}</td>
                   <td>{c.reason}</td>
@@ -112,7 +114,7 @@ export default function Diagnostics({
             </tbody>
           </table>
           <p className="rs-note">
-            Gate: peak-to-peak ≤ {f(t?.gate_max_ptp_uv, 0)} µV. {included.length} of {t?.channels?.length ?? 0} channels
+            Gate: filtered peak-to-peak &lt; {f(t?.gate_max_ptp_uv, 0)} µV. {included.length} of {t?.channels?.length ?? 0} channels
             contribute; the feature is the median of their relative alpha. Colour and wording describe signal quality only.
           </p>
         </div>

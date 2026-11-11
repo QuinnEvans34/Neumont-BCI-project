@@ -24,6 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
+from backend.signal import PROCESSING
 from backend.research import schema
 from backend.research.destinations import Destinations, now_iso, REPO_ROOT
 from backend.research.sinks import make_sinks, normalize, table_digest_sqlite
@@ -378,6 +379,7 @@ class ResearchRecorder:
     # ================================================================ metadata
     def _write_metadata(self, rec: Recording):
         meta = dict(
+            processing=PROCESSING,
             schema_version=schema.SCHEMA_VERSION, app='Neumont BCI research mode', build=build_info(),
             recording_id=rec.id, participant_id=rec.participant, condition=rec.cfg['condition'] or None,
             notes=rec.cfg['notes'] or None, storage_format=rec.fmt, destination_id=rec.dest_id,
@@ -502,7 +504,8 @@ class ResearchRecorder:
                         target, score, schema.ALGORITHM_VERSION)
         names = rec.cfg['electrodes']
         crow = [common + (acquisition_id, wid, d['channel'], names[d['channel'] - 1] if d['channel'] - 1 < len(names) else '',
-                          d.get('std_uv'), d.get('ptp_uv'), d.get('rel_alpha'), bool(d.get('included')), d.get('reason'))
+                          d.get('std_uv'), d.get('ptp_uv'), d.get('rel_alpha'), bool(d.get('included')), d.get('reason'),
+                          d.get('selected'), d.get('raw_ptp_uv'), d.get('hum_rms_uv'))
                 for d in details]
         with self.lock:
             if self._put(rec, 'signal_windows', [row]) and self._put(rec, 'channel_metrics', crow):

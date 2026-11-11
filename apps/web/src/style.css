@@ -2616,3 +2616,47 @@ button.linkish.chosen {
     padding: 14px;
   }
 }
+
+
+/* Electrode screening sits before baseline collection; text accompanies every colour. */
+.contact-check { margin: 0 0 24px; }
+.contact-heading { display: flex; gap: 24px; justify-content: space-between; align-items: start; }
+.contact-heading > div:first-child { max-width: 760px; }
+.contact-summary { min-width: 190px; border: 1px solid #486867; border-radius: 14px; padding: 18px; display: grid; gap: 5px; }
+.contact-summary strong { font-size: 2.2rem; line-height: 1; }
+.contact-summary strong span { font-size: 1.1rem; color: #a7bcbc; }
+.contact-summary small { color: #b3c5c4; }
+.contact-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+.contact-card { border: 1px solid #385456; border-top: 3px solid #637c7e; background: #0c2026; border-radius: 12px; padding: 18px; min-width: 0; }
+.contact-card.usable { border-top-color: #8ff1d0; }
+.contact-card.check { border-top-color: #efb677; }
+.contact-card.bad { border-top-color: #f29a9a; }
+.contact-card-title { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+.contact-card h3 { margin: 0 0 14px; font-size: 1.15rem; }
+.contact-card h3 small { display: block; color: #9cb6b6; font-size: .75rem; font-weight: 400; margin-top: 4px; }
+.contact-dot { width: 9px; height: 9px; flex-shrink: 0; border-radius: 100%; background: #637c7e; margin-top: 5px; }
+.usable .contact-dot { background: #8ff1d0; }
+.check .contact-dot { background: #efb677; }
+.bad .contact-dot { background: #f29a9a; }
+.contact-status { font-size: .95rem; }
+.usable .contact-status { color: #8ff1d0; }
+.check .contact-status { color: #efb677; }
+.bad .contact-status { color: #f29a9a; }
+.contact-values { display: grid; gap: 10px; margin-top: 18px; }
+.contact-values span { display: block; color: #9cb6b6; font-size: .76rem; margin-bottom: 3px; }
+.contact-values b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.contact-values b small { color: #a7bcbc; font-weight: 400; font-size: .72rem; }
+.contact-card p { font-size: .82rem; line-height: 1.5; min-height: 60px; }
+.contact-role { display: block; padding-top: 12px; border-top: 1px solid #28434a; color: #a7bcbc; font-size: .72rem; }
+.contact-help { border-top: 1px solid #28434a; padding-top: 16px; }
+.contact-help summary { cursor: pointer; }
+.contact-help label { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.contact-help select { width: auto; }
+.contact-help li { margin: 10px 0; }
+@media (max-width: 1100px) { .contact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .contact-heading { flex-direction: column; }
+  .contact-summary { width: 100%; box-sizing: border-box; }
+  .contact-grid { grid-template-columns: minmax(0, 1fr); }
+  .contact-card p { min-height: 0; }
+}

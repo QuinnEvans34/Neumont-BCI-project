@@ -1,4 +1,4 @@
-"""Research recording schema v1: one logical model for CSV, SQLite and the CSV ZIP export.
+"""Research recording schema v2: one logical model for CSV, SQLite and the CSV ZIP export.
 
 Every table starts with recording_id and participant_id. Types:
   TEXT, INTEGER, REAL, BOOL (0/1), JSON (text). Free-text columns are marked
@@ -11,8 +11,10 @@ from __future__ import annotations
 import json
 import math
 
-SCHEMA_VERSION = 1
-ALGORITHM_VERSION = 'relative-alpha-v1 (8-<12 Hz / 4-30 Hz Hann FFT power, median of included channels; 2 s windows)'
+from backend.signal import PROCESSING_VERSION
+
+SCHEMA_VERSION = 2
+ALGORITHM_VERSION = PROCESSING_VERSION
 
 C = tuple  # (name, type, unit, description, free_text?)
 
@@ -84,11 +86,14 @@ TABLES: dict[str, list[tuple]] = {
         ('window_id', 'INTEGER', '', 'signal_windows.window_id'),
         ('channel', 'INTEGER', '', '1–8'),
         ('electrode', 'TEXT', '', 'Operator electrode label; empty if unknown'),
-        ('std_uv', 'REAL', 'µV', 'Standard deviation over the window'),
-        ('ptp_uv', 'REAL', 'µV', 'Peak-to-peak over the window'),
+        ('std_uv', 'REAL', 'µV', 'Filtered standard deviation over the 2 s window'),
+        ('ptp_uv', 'REAL', 'µV', 'Filtered peak-to-peak over the 2 s window'),
         ('relative_alpha', 'REAL', 'ratio', 'This channel\'s relative alpha (same calculation as the score); empty if excluded'),
         ('included', 'BOOL', '', '1 if this channel contributed to the median'),
         ('reason', 'TEXT', '', 'Included, or why excluded'),
+        ('selected', 'BOOL', '', 'Operator selected this channel for scoring'),
+        ('raw_ptp_uv', 'REAL', 'µV', 'Raw peak-to-peak before filtering'),
+        ('hum_rms_uv', 'REAL', 'µV RMS', 'Raw 59–61 Hz integrated Hann PSD; not impedance'),
     ],
     'input_frames': COMMON + [
         ('acquisition_id', 'TEXT', '', 'Stream segment; frame identity is (acquisition_id, sequence)'),
