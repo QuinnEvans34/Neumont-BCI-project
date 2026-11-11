@@ -1,12 +1,16 @@
 {
   "name": "neumont-bci-project",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite apps/web --host 127.0.0.1",
     "build": "tsc --noEmit && vite build apps/web",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "node --import tsx --test tests/*.test.ts",
+    "version:check": "node tools/release/check-version.mjs",
+    "version:check-main": "node tools/release/check-version.mjs --base origin/main",
+    "hooks:install": "node tools/release/install-hooks.mjs",
+    "prepare": "node tools/release/install-hooks.mjs"
   },
   "dependencies": {
     "react": "19.0.0",

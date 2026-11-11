@@ -1,6 +1,6 @@
 // Pure, time-based Glowing Garden model. No DOM, no timers: the render loop
 // feeds it bounded time steps and the published score from the shared stream.
-// Formulas follow docs/garden/spec.md ("Immediate response" and "Lasting growth").
+// Formulas follow docs/workspace/dashboard/games/garden/spec.md ("Immediate response" and "Lasting growth").
 
 export type GardenState = {
   /** Lasting growth in [0,1]. Never decreases except via explicit reset. */

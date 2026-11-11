@@ -1,6 +1,32 @@
 name: Checks
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
+  version-policy:
+    name: version-policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # A test merge includes main even when the contributor's branch is stale.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate version files
+        run: node tools/release/check-version.mjs
+      - name: Require latest main and a new version on PRs
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: |
+          git fetch origin +refs/heads/main:refs/remotes/origin/main
+          node tools/release/check-version.mjs --base origin/main --head HEAD
+      - name: Audit version advance on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          PREVIOUS_MAIN: ${{ github.event.before }}
+        run: node tools/release/check-version.mjs --base "$PREVIOUS_MAIN" --head HEAD
   frontend:
     runs-on: ubuntu-latest
     steps:
