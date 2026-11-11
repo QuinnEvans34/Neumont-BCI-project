@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import VersionBadge from "./VersionBadge";
 import Game from "./Game";
 import Garden from "./Garden";
 import Cairn from "./Cairn";
@@ -434,6 +435,7 @@ export default function App() {
           AI & DATA CLUB <span>/ BRAIN GAMES</span>
         </a>
         <span className="header-right">
+        <VersionBadge />
         <button
           className={`switch rs-toggle ${researchMode ? "on" : ""}`}
           aria-pressed={researchMode}

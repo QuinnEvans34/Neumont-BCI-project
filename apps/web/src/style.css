@@ -2171,8 +2171,26 @@ button.danger {
 /* ---------- Research / Dev Mode ---------- */
 .header-right {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
+}
+.build-version {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid #375951;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.build-version strong { color: #8ff1d0; }
+.build-channel { margin-left: 6px; color: #c4d7d5; }
+.build-details {
+  color: #a2b9ba;
+  font-size: 10px;
+  overflow-wrap: anywhere;
 }
 button.switch.rs-toggle {
   width: auto;

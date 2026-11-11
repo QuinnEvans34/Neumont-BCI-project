@@ -13,12 +13,12 @@ on/off circle with an in-game color picker and 1–30 Hz frequency slider. The
 bottom panel shows all eight channels' dominant frequencies and alpha powers,
 plus summed alpha power across valid channels. Every trial automatically records
 full-rate EEG, settings/changes, notes, frame timing and metrics, with ZIP export.
-See the [SSVEP Circle guide](docs/experiments/ssvep-circle.md).
+See the [SSVEP Circle guide](docs/workspace/dashboard/experiments/ssvep-circle.md).
 
 **Visualizer:** open **05 Visualizer** for live EEG and signal-quality charts,
 recorded-session inspection, spectra, game/event tracks and a table explorer.
 Compare up to four recordings or revisit the browser's Cairn/Garden round history.
-See the [Visualizer guide](docs/visualizer.md). Restart an already-running Python
+See the [Visualizer guide](docs/workspace/dashboard/visualizer.md). Restart an already-running Python
 backend after updating to load the analytics endpoints.
 
 **Research / Dev Mode (implemented October 21; verified with Simulated EEG only):** a header switch shows a persistent recording bar. One recording captures a pseudonymous participant across connection, calibration, Cairn and Garden:
@@ -27,28 +27,21 @@ backend after updating to load the analytics endpoints.
 - ~20 Hz game state and all game events (stones, fireflies, gusts, flicker, falls, plants, milestones, settle-in, breathing/audio settings, pauses), with markers;
 - storage as CSV, SQLite or Both in a chosen local folder.
 
-**Stop & save** then **Download ZIP** gives one portable CSV ZIP for sharing in Teams. **Review** lists every recording and has a Cairn fall inspector and a Garden inspector. See the [operating guide](docs/dev-mode/operating.md), [verification notes](docs/dev-mode/verification.md) and [specification](docs/dev-mode/README.md).
+**Stop & save** then **Download ZIP** gives one portable CSV ZIP for sharing in Teams. **Review** lists every recording and has a Cairn fall inspector and a Garden inspector. See the [operating guide](docs/workspace/dashboard/devtools/operating.md), [verification notes](docs/archive/sessions/2026-10-21/dev-mode.md) and [specification](docs/workspace/dashboard/devtools/README.md).
 
-**Cairn (new):** a focus game in a photo-scrapbook style. A hand stacks real stones on a plank balanced on a pointed rock; steady signal keeps the tower still, distraction makes it sway and fall, and every stone is a point. Every fifth stone makes the cairn touchier; fireflies and gusts of wind come more often as it grows, and the fireflies can blink at 15 Hz as an opt-in SSVEP stimulus. Calm and Go modes, best scores per mode and source, and a no-headset test path using recorded OpenBCI sessions. See [the Cairn guide](docs/cairn.md).
+**Cairn (new):** a focus game in a photo-scrapbook style. A hand stacks real stones on a plank balanced on a pointed rock; steady signal keeps the tower still, distraction makes it sway and fall, and every stone is a point. Every fifth stone makes the cairn touchier; fireflies and gusts of wind come more often as it grows, and the fireflies can blink at 15 Hz as an opt-in SSVEP stimulus. Calm and Go modes, best scores per mode and source, and a no-headset test path using recorded OpenBCI sessions. See [the Cairn guide](docs/workspace/dashboard/games/cairn/README.md).
 
-**Glowing Garden (first version implemented):** a second game where a central plant glows with your signal and grows with sustained above-baseline input. Both games share one connection, one session and one baseline through a new game chooser. See the [specification](docs/garden/spec.md), [implementation handoff](docs/garden/claude-handoff.md) and [verification notes](docs/garden/verification.md).
+**Glowing Garden (first version implemented):** a second game where a central plant glows with your signal and grows with sustained above-baseline input. Both games share one connection, one session and one baseline through a new game chooser. See the [specification](docs/workspace/dashboard/games/garden/spec.md), [implementation handoff](docs/archive/plans/garden/claude-handoff.md) and [verification notes](docs/archive/sessions/2026-10-14/garden.md).
 
-**Experiments (prototype, implemented October 14):** *Bilateral Visual Stimulation* (alternating left/right cues with raw-EEG observation and recording) and *SSVEP Cards* (three cards at 10/12/15 Hz with a real CCA decoder that selects or abstains). Both appear in the shared chooser, bypass the alpha baseline, and save full-rate EEG, events, frame logs and predictions locally. Verified only with Simulated EEG so far; see the [experiment verification notes](docs/experiments/verification.md) for what is and is not verified, and next-class operating steps.
+**Experiments (prototype, implemented October 14):** *Bilateral Visual Stimulation* (alternating left/right cues with raw-EEG observation and recording) and *SSVEP Cards* (three cards at 10/12/15 Hz with a real CCA decoder that selects or abstains). Both appear in the shared chooser, bypass the alpha baseline, and save full-rate EEG, events, frame logs and predictions locally. Verified only with Simulated EEG so far; see the [experiment verification notes](docs/archive/sessions/2026-10-14/experiments/verification.md) for what is and is not verified, and next-class operating steps.
 
-**Immediate weekend goal:** [Recorded EEG → calibration → game, plus tomorrow’s hardware check](docs/replay-and-connection.md). No headset needed for replay. See also the [live-demo plan](docs/weekend-live-demo.md).
+**Replay and hardware checks:** follow the [recorded EEG → calibration → game walkthrough](docs/workspace/dashboard/games/cairn/howtoplaycairn.md). No headset is needed for replay.
 
-**Primary implementation plan:** [Complete build blueprint](docs/blueprint.md), with [exact source/reuse matrix](docs/blueprint/reuse-matrix.md) and [34 estimated task cards](docs/blueprint/work-breakdown.md).
+**Documentation:** start at the [docs index](docs/README.md).
 
-- [Pitch and meeting agenda](docs/pitch.md)
-- [MVP and acceptance criteria](docs/mvp.md)
-- [Workstreams and claimable tasks](docs/workstreams/README.md)
-- [Weekend plan and ten-week roadmap](docs/roadmap.md)
-- [Architecture and input contract](docs/architecture.md)
-- [Research and reusable software](docs/research.md)
-- [P300/SSVEP research: datasets, activities, apps and hexapod control](docs/p300-ssvep-research.md)
-- [Bilateral and SSVEP experiments: spec, plan and Claude prompt](docs/experiments/spec.md) · [verification and operating notes](docs/experiments/verification.md)
-- [Starter validation report](docs/validation.md)
-- [Decisions and open questions](docs/decisions.md)
+- [Workspace: architecture, app guides, dependencies and releases](docs/workspace/README.md)
+- [Project: MVP, roadmap, pitch, hardware and research](docs/project/README.md)
+- [Archive: original blueprint, task briefs, handoffs and verification records](docs/archive/README.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## Run the frontend without a headset
@@ -88,18 +81,18 @@ Art review without waiting for input: with `npm run dev`, open http://127.0.0.1:
 
 **Experiments.** Open **Bilateral Visual Stimulation** or **SSVEP Cards** from Choose; opening never starts stimulation. Each page has setup (participant pseudonym, electrode map, settings), a notice, an explicit Start, a persistent Stop and Escape-to-stop. SSVEP also needs a 5-second display check (steady 60 or 120 Hz) and at least two O/PO channels; it runs threshold setup → freeze → evaluation and reports correct, incorrect, abstained, invalid and neutral-false-activation counts separately. Recordings are written to `data/experiments/<uuid>/` (ignored by Git; override with `BCI_EXPERIMENTS_DIR`) and can be exported as a zip. Optical timing is unverified (no photodiode).
 
-**Cairn.** Pick **Calm** (the hand only moves while the tower is still: a stone every 3 s when you stay focused) or **Go** (a stone every 6 s, ready or not; one that lands on a swaying tower topples it), then **Start stacking**. Signal above baseline stiffens and steadies the tower; time below baseline builds gusts until it falls. Every five stones the tilt that topples it shrinks, and fireflies and gusts (which briefly lower that tilt) grow commoner and stronger; a typical player averages about 15 stones in Calm. The fall ends the round and the stone count is the score; bests are kept per mode and per input source. **Fireflies blink at 15 Hz (SSVEP)** is off by default; turn it on only for players who have agreed to flashing light, and download the flicker log to line it up with EEG. Rules, tuning and the art pipeline are in [docs/cairn.md](docs/cairn.md).
+**Cairn.** Pick **Calm** (the hand only moves while the tower is still: a stone every 3 s when you stay focused) or **Go** (a stone every 6 s, ready or not; one that lands on a swaying tower topples it), then **Start stacking**. Signal above baseline stiffens and steadies the tower; time below baseline builds gusts until it falls. Every five stones the tilt that topples it shrinks, and fireflies and gusts (which briefly lower that tilt) grow commoner and stronger; a typical player averages about 15 stones in Calm. The fall ends the round and the stone count is the score; bests are kept per mode and per input source. **Fireflies blink at 15 Hz (SSVEP)** is off by default; turn it on only for players who have agreed to flashing light, and download the flicker log to line it up with EEG. Rules, tuning and the art pipeline are in [docs/workspace/dashboard/games/cairn/README.md](docs/workspace/dashboard/games/cairn/README.md).
 
 *Test Cairn with recorded EEG, no headset:* convert OpenBCI GUI's sample session (`python -m backend.openbci_convert ~/Documents/OpenBCI_GUI/Sample_Data/OpenBCI_GUI-v6-meditation.txt`), start the backend with `BCI_RECORDINGS_DIR=data/recordings`, and choose that recording on Connect. Or, with only `npm run dev`, open http://127.0.0.1:5173/?cairn-preview to play recorded game input (from `python -m backend.score_trace`) through the game at up to 8× speed.
 
-**Research / Dev Mode.** Turn on the header switch, click **Start…**, enter and confirm a participant pseudonym, choose CSV/SQLite/Both and a destination folder, and click **Start recording** (before or after connecting). Play as usual, add markers (Alt+M), then **Stop & save** and **Download ZIP**. The backend writes to `data/research/<uuid>/` (ignored by Git; override with `BCI_RESEARCH_DIR`); the ZIP is a separate browser download. Full steps, the storage/download distinction and an analysis example: [docs/dev-mode/operating.md](docs/dev-mode/operating.md).
+**Research / Dev Mode.** Turn on the header switch, click **Start…**, enter and confirm a participant pseudonym, choose CSV/SQLite/Both and a destination folder, and click **Start recording** (before or after connecting). Play as usual, add markers (Alt+M), then **Stop & save** and **Download ZIP**. The backend writes to `data/research/<uuid>/` (ignored by Git; override with `BCI_RESEARCH_DIR`); the ZIP is a separate browser download. Full steps, the storage/download distinction and an analysis example: [docs/workspace/dashboard/devtools/operating.md](docs/workspace/dashboard/devtools/operating.md).
 
 **Balance Beam.**
 
 The game has no countdown or automatic win. Falling ends the round; rejected/missing input and recording EOF pause it without a loss. Resume explicitly after a signal interruption. Rounds ease in over five seconds, and assistance changes smoothly.
 
 The backend starts disconnected. Fresh samples are required to verify delivery; an open SDK session does not establish electrode contact. A live session without samples times out after five seconds.
-Recordings default to `~/Documents/OpenBCI_GUI/Recordings`. Set `BCI_RECORDINGS_DIR` to another folder before starting the backend if needed. Raw recordings stay outside Git. Replay stops at the end; reconnect to restart. See [replay and debugging instructions](docs/replay-and-connection.md).
+Recordings default to `~/Documents/OpenBCI_GUI/Recordings`. Set `BCI_RECORDINGS_DIR` to another folder before starting the backend if needed. Raw recordings stay outside Git. Replay stops at the end; reconnect to restart. See [replay and debugging instructions](docs/workspace/dashboard/games/cairn/howtoplaycairn.md).
 
 Windows: create the environment with `py -m venv .venv`, then activate `.venv\Scripts\Activate.ps1` in PowerShell.
 
