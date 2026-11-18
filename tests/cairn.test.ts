@@ -9,6 +9,7 @@ import {
   fallAngle,
   dropSway,
   gustLoad,
+  thresholdGustLoad,
   CALM_INTERVAL,
   GO_INTERVAL,
   GO_WAIT,
@@ -68,6 +69,64 @@ test("score maps to focus around the 0.5 baseline", () => {
   assert.ok(focusOf(0.5) > 0.3 && focusOf(0.5) < 0.4);
   assert.equal(focusOf(-1), 0);
   assert.equal(focusOf(2), 1);
+});
+
+test("wind settings default off, migrate old records and persist independently", () => {
+  for (const r of [emptyRecord(), sanitizeRecord({ flicker: true }), sanitizeRecord({ windOff: "true", windThresholdOff: 1 })]) {
+    assert.equal(r.windOff, false);
+    assert.equal(r.windThresholdOff, false);
+  }
+  for (const windOff of [false, true]) for (const windThresholdOff of [false, true]) {
+    const settings = { windOff, windThresholdOff };
+    const r = sanitizeRecord(JSON.parse(JSON.stringify({ ...emptyRecord(), ...settings })));
+    assert.equal(r.windOff, windOff);
+    assert.equal(r.windThresholdOff, windThresholdOff);
+  }
+  assert.deepEqual(run(initialCairn("calm", 12), 30, 0.7), run(initialCairn("calm", 12, { windOff: false, windThresholdOff: false }), 30, 0.7));
+});
+
+test("wind off removes ambient and gust forces and overrides threshold-only setting", () => {
+  for (const windThresholdOff of [false, true]) {
+    const s = { ...initialCairn("go", 2, { windOff: true, windThresholdOff }), elapsed: 30 };
+    const gusty = startEvent(s, "gust", 1);
+    gusty.event!.time = 2;
+    const a = stepCairn(s, 0.1, 0);
+    const b = stepCairn(gusty, 0.1, 0);
+    assert.equal(a.angle, 0);
+    assert.equal(b.angle, 0);
+    assert.equal(b.velocity, 0);
+    assert.equal(gustLoad(b), 0);
+    assert.equal(thresholdGustLoad(b), 0);
+    assert.equal(fallAngle(b.stones, thresholdGustLoad(b)), fallAngle(b.stones));
+  }
+});
+
+test("threshold-only setting preserves wind motion and gust envelope", () => {
+  const s = { ...initialCairn("go", 2), elapsed: 30 };
+  const gusty = startEvent(s, "gust", 1);
+  gusty.event!.time = 2;
+  const normal = stepCairn(gusty, 0.1, 0.8);
+  const thresholdsOff = stepCairn({ ...gusty, windThresholdOff: true }, 0.1, 0.8);
+  assert.equal(normal.angle, thresholdsOff.angle);
+  assert.equal(normal.velocity, thresholdsOff.velocity);
+  assert.ok(gustLoad(thresholdsOff) > 0.99);
+  assert.equal(thresholdGustLoad(thresholdsOff), 0);
+  assert.ok(normal.angle > stepCairn(s, 0.1, 0.8).angle, "gust still pushes");
+});
+
+test("threshold-only setting protects both sway and Go landing limits during a gust", () => {
+  const s = startEvent({ ...initialCairn("go", 2), elapsed: 30 }, "gust", 1);
+  s.event!.time = 2;
+  const tilted = { ...s, angle: 0.23, sway: 0.23 };
+  assert.equal(stepCairn(tilted, 0.001, 0.8).cause, "sway");
+  assert.equal(stepCairn({ ...tilted, windThresholdOff: true }, 0.001, 0.8).fallen, false);
+  const landing: CairnState = { ...s, phase: "approach", approach: 0.99999, sway: 0.06 };
+  assert.equal(stepCairn(landing, 0.001, 0.8).cause, "drop");
+  const safe = stepCairn({ ...landing, windThresholdOff: true }, 0.001, 0.8);
+  assert.equal(safe.fallen, false);
+  assert.equal(safe.stones, 1);
+  // Restore normal wind during the same gust: its reduction applies immediately.
+  assert.equal(stepCairn({ ...tilted, windThresholdOff: false }, 0.001, 0.8).fallen, true);
 });
 
 test("invalid steps and a fallen cairn leave the state unchanged", () => {

@@ -7,12 +7,13 @@ import {
   initialCairn,
   fallAngle,
   dropSway,
-  gustLoad,
+  thresholdGustLoad,
   tierOf,
   STEADY_SWAY,
   GO_APPROACH,
   GO_WAIT,
   type CairnMode,
+  type CairnWindSettings,
 } from "./cairnSimulation";
 import {
   bestKey,
@@ -42,6 +43,7 @@ export type CairnProps = {
   onRound: (round: CairnRound) => void;
   /** Turn the bugs' SSVEP blinking on or off. */
   onFlicker: (on: boolean) => void;
+  onWindSettings: (settings: CairnWindSettings) => void;
   /** A stretch of blinking ended; log it for lining up with EEG. */
   onStimulus: (s: CairnStimulus) => void;
   /** Start a new cairn, optionally in another mode. */
@@ -73,7 +75,7 @@ const MODE_INFO: Record<CairnMode, { title: string; text: string }> = {
 function swayLabel(view: CairnView) {
   if (view.fallen) return "Fallen";
   if (view.sway < STEADY_SWAY) return "Steady";
-  if (view.sway < dropSway(view.stones, gustLoad(view))) return "Swaying";
+  if (view.sway < dropSway(view.stones, thresholdGustLoad(view))) return "Swaying";
   return "Toppling";
 }
 
@@ -81,7 +83,7 @@ function swayLabel(view: CairnView) {
 function handNote(view: CairnView, live: boolean) {
   if (view.fallen || !live) return "";
   const event =
-    view.event?.kind === "gust" ? " · a gust!" : view.event?.kind === "bug" ? " · a firefly" : "";
+    view.event?.kind === "gust" && !view.windOff ? " · a gust!" : view.event?.kind === "bug" ? " · a firefly" : "";
   if (view.mode === "go") {
     const left =
       view.phase === "wait"
@@ -192,7 +194,7 @@ export default function Cairn(props: CairnProps) {
         ? "The cairn fell."
         : "Timber!"
       : props.live
-        ? view.event?.kind === "gust"
+        ? view.event?.kind === "gust" && !view.windOff
           ? "Gust! Hold it still."
           : swayLabel(view) === "Steady"
             ? "Steady hands."
@@ -200,7 +202,7 @@ export default function Cairn(props: CairnProps) {
         : "Cairn paused.";
   const note = handNote(view, props.live);
   // The sway gauge runs up to the current topple limit, which shrinks every five stones and in gusts.
-  const gust = gustLoad(view);
+  const gust = thresholdGustLoad(view);
   const limit = fallAngle(view.stones, gust);
   const gauge = (sway: number) => `${Math.min(100, (sway / limit) * 100)}%`;
   const flickerOn = props.record.flicker && !reducedMotion;
@@ -242,6 +244,8 @@ export default function Cairn(props: CairnProps) {
                   reset: props.reset,
                   mode: props.mode,
                   flicker: flickerOn,
+                  windOff: props.record.windOff,
+                  windThresholdOff: props.record.windThresholdOff,
                   reducedMotion,
                   source: props.sourceId,
                   usable: props.usable ?? props.score !== null,
@@ -396,6 +400,20 @@ export default function Cairn(props: CairnProps) {
             </button>
           </div>
           <div className="cairn-flicker">
+            <label>
+              <input type="checkbox" checked={props.record.windOff}
+                onChange={(e) => props.onWindSettings({ windOff: e.target.checked, windThresholdOff: props.record.windThresholdOff })} />
+              Wind off completely
+            </label>
+            <label>
+              <input type="checkbox" checked={props.record.windThresholdOff}
+                onChange={(e) => props.onWindSettings({ windOff: props.record.windOff, windThresholdOff: e.target.checked })} />
+              Wind does not lower tumble thresholds
+            </label>
+            <p className="meter-note">
+              Both off: normal wind. With only the second box on, wind still pushes and stays visible.
+              Wind off completely takes priority when both are on. Changes apply immediately.
+            </p>
             <label>
               <input
                 type="checkbox"

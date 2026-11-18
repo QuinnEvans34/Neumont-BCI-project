@@ -62,6 +62,8 @@ export type CairnControls = {
   mode: CairnMode;
   /** Opt-in: bug lanterns blink at BUG_HZ for SSVEP. Otherwise they glow and breathe slowly. */
   flicker?: boolean;
+  windOff?: boolean;
+  windThresholdOff?: boolean;
   /** Development preview only: run the model faster than real time. */
   timeScale?: number;
   reducedMotion?: boolean;
@@ -631,7 +633,7 @@ export default function CairnStage({
         this.endFlicker(time, "round_reset");
         this.round += 1;
         const seed = (Date.now() ^ (this.round * 7919)) >>> 0;
-        this.sim = initialCairn(c.mode, seed);
+        this.sim = initialCairn(c.mode, seed, c);
         tracer.current?.newRound(
           this.sim,
           {
@@ -973,6 +975,13 @@ export default function CairnStage({
       /** Streaks of wind, and leaves in the stronger gusts, blowing across the view. */
       private drawGust(frame: number) {
         const c = current.current;
+        if (this.sim.windOff) {
+          for (const g of this.gusts) g.img.destroy();
+          this.gusts = [];
+          this.streakDue = 0;
+          this.leafDue = 0;
+          return;
+        }
         const e = this.sim.event;
         const view = this.cameras.main.worldView;
         const load = this.sim.fallen ? 0 : gustLoad(this.sim);
@@ -1081,6 +1090,12 @@ export default function CairnStage({
         if (this.resetId !== c.reset) {
           this.resetId = c.reset;
           this.newRound(time);
+        }
+        if (this.sim.windOff !== !!c.windOff || this.sim.windThresholdOff !== !!c.windThresholdOff) {
+          const prev = this.sim;
+          this.sim = { ...this.sim, windOff: !!c.windOff, windThresholdOff: !!c.windThresholdOff };
+          tracer.current?.windSettingsChanged(prev, this.sim, performance.timeOrigin + time);
+          report.current({ ...this.sim, collapse: this.collapse, settled: this.tumbleSettled });
         }
         const d = c.debugEvent;
         if (d && d.nonce !== this.debugNonce) {

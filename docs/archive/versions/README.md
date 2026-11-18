@@ -4,6 +4,7 @@ Overviews of superseded source and documentation versions. The [current workspac
 
 | Version | Overview |
 | --- | --- |
+| 0.1.2 | [Visual maps beside their guides and project roadmap relocation](0.1.2/README.md). |
 | 0.1.1 | [Documentation organization, visual map exports and shared version enforcement](0.1.1/README.md). |
 | 0.1.0 | [Prototype and accumulated game, experiment and research tooling](0.1.0/README.md). |
 

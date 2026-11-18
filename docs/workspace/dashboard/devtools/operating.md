@@ -163,7 +163,12 @@ Hum is RMS from raw Hann-window PSD integrated over 59–61 Hz. The displayed ra
 waveform is not the waveform used for the filtered amplitude gate. The UI does not
 claim contact is good simply because the notch suppresses interference.
 
-New recordings use schema 2 and include processing settings in metadata.json.
+New recordings use schema 3 and include processing settings in metadata.json.
+Schema 3 adds Cairn's `cairn_wind_off` and `cairn_wind_threshold_off` game-state
+columns, initial settings in `round_started`, and timestamped `wind_setting_changed`
+events. Both controls default off; see [wind controls](../games/cairn/README.md#wind-controls).
+Restart the backend after updating. Schema-1/2 recordings remain readable/exportable;
+their missing wind-setting columns are unknown, and exports retain the original columns.
 Older schema-1 recordings remain readable/exportable; their std_uv and ptp_uv
 measure RAW data and must not be compared as if they were filtered metrics.
 The relative-alpha feature is an experimental input, not a validated stress score.

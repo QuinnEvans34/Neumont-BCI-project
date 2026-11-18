@@ -63,6 +63,61 @@ test("cairn trace logs every stone, level and effect exactly once", () => {
   assert.equal(new Set(k.events.map((e) => e.round_id)).size, 1);
 });
 
+test("cairn wind settings are captured at start, paused changes and partial recording starts", () => {
+  const k = sink();
+  const trace = new CairnTrace(k);
+  let s = initialCairn("go", 12);
+  trace.newRound(s, { mode: "go", seed: 12, flicker: false, reducedMotion: false, timeScale: 1 }, "reset", 0);
+  trace.begin(1);
+  assert.equal(k.events[0].payload.wind_off, false);
+  assert.equal(k.events[0].payload.wind_threshold_off, false);
+  trace.pause("paused_by_user", 2);
+  for (const [windOff, windThresholdOff] of [[false, true], [true, true], [true, false], [false, false]]) {
+    const next = { ...s, windOff, windThresholdOff };
+    trace.windSettingsChanged(s, next, 3);
+    const changed = k.events.at(-1)!;
+    assert.equal(changed.type, "wind_setting_changed");
+    assert.equal(changed.payload.old_wind_off, s.windOff);
+    assert.equal(changed.payload.old_wind_threshold_off, s.windThresholdOff);
+    assert.equal(changed.payload.wind_off, windOff);
+    assert.equal(changed.payload.wind_threshold_off, windThresholdOff);
+    assert.equal(k.states.at(-1)!.cairn_wind_off, windOff);
+    assert.equal(k.states.at(-1)!.cairn_wind_threshold_off, windThresholdOff);
+    s = next;
+  }
+  const next = { ...s, windThresholdOff: true };
+  trace.windSettingsChanged(s, next, 4);
+  trace.onRecordingBegin();
+  const partial = k.events.filter((e) => e.type === "round_started").at(-1)!;
+  assert.equal(partial.payload.partial_start, true);
+  assert.equal(partial.payload.wind_threshold_off, true);
+  assert.equal(partial.payload.wind_off, false);
+});
+
+test("cairn recorded thresholds follow the toggles while keeping the visual gust load", () => {
+  for (const windOff of [false, true]) for (const windThresholdOff of [false, true]) {
+    const k = sink();
+    const trace = new CairnTrace(k);
+    const s = startEvent(initialCairn("go", 12, { windOff, windThresholdOff }), "gust", 1);
+    s.event!.time = 2;
+    trace.newRound(s, { mode: "go", seed: 12, flicker: false, reducedMotion: false, timeScale: 1 }, "reset", 0);
+    trace.begin(1);
+    const state = k.states.at(-1)!;
+    assert.equal(state.cairn_gust_load, windOff ? 0 : 1);
+    assert.equal(state.cairn_fall_angle_rad, windOff || windThresholdOff ? 0.3 : 0.195);
+    assert.equal(state.cairn_drop_sway_rad, windOff || windThresholdOff ? 0.075 : 0.04875);
+    assert.equal(state.cairn_wind_off, windOff);
+    assert.equal(state.cairn_wind_threshold_off, windThresholdOff);
+    const tilted = { ...s, angle: 0.31, elapsed: 30 };
+    trace.step(tilted, stepCairn(tilted, 0.001, 0.8), 2);
+    const fell = k.events.find((e) => e.type === "cairn_fell")!;
+    assert.equal(fell.payload.fall_angle_threshold_rad, state.cairn_fall_angle_rad);
+    assert.equal(fell.payload.drop_sway_threshold_rad, state.cairn_drop_sway_rad);
+    assert.equal(fell.payload.wind_off, windOff);
+    assert.equal(fell.payload.wind_threshold_off, windThresholdOff);
+  }
+});
+
 test("cairn fall is logged with thresholds and ends the round once", () => {
   const k = sink();
   const trace = new CairnTrace(k);

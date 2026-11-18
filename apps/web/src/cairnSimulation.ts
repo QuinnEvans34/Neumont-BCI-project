@@ -25,7 +25,14 @@ export type CairnEvent = {
   path: "ground" | "air";
 };
 
-export type CairnState = {
+export type CairnWindSettings = {
+  /** Disable all wind forces, gust visuals and gust threshold reductions. */
+  windOff: boolean;
+  /** Keep wind forces and visuals, but do not lower either tumble limit. */
+  windThresholdOff: boolean;
+};
+
+export type CairnState = CairnWindSettings & {
   mode: CairnMode;
   /** Seconds this round has actually run with usable input. */
   elapsed: number;
@@ -115,19 +122,24 @@ export const GUST_FULL_AT = 0.25;
 export const GUST_EASE_AT = 0.6;
 
 /** A gust's current effect, 0..1: quick to arrive, a short hold, then easing off. */
-export function gustLoad(s: Pick<CairnState, "event">) {
+export function gustLoad(s: Pick<CairnState, "event"> & Partial<CairnWindSettings>) {
   const e = s.event;
-  if (!e || e.kind !== "gust") return 0;
+  if (s.windOff || !e || e.kind !== "gust") return 0;
   const x = e.time / e.duration;
   return e.strength * smoothstep(0, GUST_FULL_AT, x) * (1 - smoothstep(GUST_EASE_AT, 1, x));
 }
+
+/** Gust load used by both tumble limits; independent of the visual/force envelope. */
+export const thresholdGustLoad = (s: CairnState) => s.windThresholdOff ? 0 : gustLoad(s);
 
 /** Steadiness drive from the published score: 0 at 0.35, 1 at 0.8 (0.5 is the baseline). */
 export const focusOf = (score: number) => clamp01((score - 0.35) / 0.45);
 /** Focus at the 0.5 baseline score; below it unrest builds, above it settles. */
 const BASELINE_FOCUS = focusOf(0.5);
 
-export const initialCairn = (mode: CairnMode = "calm", seed = 1): CairnState => ({
+export const initialCairn = (mode: CairnMode = "calm", seed = 1, settings: Partial<CairnWindSettings> = {}): CairnState => ({
+  windOff: settings.windOff === true,
+  windThresholdOff: settings.windThresholdOff === true,
   mode,
   elapsed: 0,
   angle: 0,
@@ -200,7 +212,7 @@ function physics(s: CairnState, h: number, score: number): CairnState {
   const accel =
     -k * s.angle -
     damping(focus) * s.velocity +
-    ease * wind(s.elapsed, focus, s.stones, unrest) +
+    (s.windOff ? 0 : ease * wind(s.elapsed, focus, s.stones, unrest)) +
     gust;
   const velocity = s.velocity + accel * h;
   const angle = s.angle + velocity * h;
@@ -212,7 +224,7 @@ function physics(s: CairnState, h: number, score: number): CairnState {
 }
 
 function place(s: CairnState): CairnState {
-  if (s.mode === "go" && s.sway > dropSway(s.stones, gustLoad(s)))
+  if (s.mode === "go" && s.sway > dropSway(s.stones, thresholdGustLoad(s)))
     return { ...s, fallen: true, cause: "drop", phase: "release", phaseTime: 0 };
   const kick = PLACE_KICK * stoneOffset(s.seed, s.stones);
   return {
@@ -314,7 +326,7 @@ export function stepCairn(s: CairnState, dt: number, score: number): CairnState 
     left -= h;
     next = physics(next, h, clamp01(score));
     if (isSteady(next)) next = { ...next, steadyTime: next.steadyTime + h };
-    if (Math.abs(next.angle) >= fallAngle(next.stones, gustLoad(next)))
+    if (Math.abs(next.angle) >= fallAngle(next.stones, thresholdGustLoad(next)))
       return { ...next, fallen: true, cause: "sway" };
     next = events(hand(next, h), h);
   }

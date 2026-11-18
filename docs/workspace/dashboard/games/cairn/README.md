@@ -24,6 +24,22 @@ Connect → Calibrate → Choose a game → **Cairn**. Pick a mode, then **Start
 
 The side panel shows the **sway** gauge, whose end is the current topple limit (so it fills faster at higher levels and during a gust), with the calm-mode "steady" mark and, in Go mode, the red "a landing stone knocks it over" mark, plus the live signal level against the baseline.
 
+## Wind controls
+
+Two checkboxes sit above the firefly toggle in the side panel. Both are **off by default** and remembered in this browser; changes apply immediately, including while paused.
+
+| Wind off completely | Wind does not lower tumble thresholds | Behavior |
+| --- | --- | --- |
+| Off | Off | Normal wind forces, visuals and gust reductions to both tumble limits. |
+| Off | On | Wind still pushes the tower and shows streaks/leaves, but gusts do not lower the sway-fall or Go-mode landing threshold. |
+| On | Either | No ambient wind force, gust push, wind streaks/leaves or gust threshold reductions. |
+
+Level-based difficulty, stone-placement nudges, signal-dependent stiffness/damping and fireflies remain active. Disabling wind does not guarantee the tower cannot fall. Seeded event timing continues while wind is disabled, so a scheduled gust can still appear in recording event tracks with zero effective load. Re-enabling wind restores any current gust at its current progress.
+
+Research recordings capture `wind_off` and `wind_threshold_off` in `round_started` (including recording starts mid-round), timestamped `wind_setting_changed` events with old/new values, and `cairn_wind_off` / `cairn_wind_threshold_off` in game-state rows. Recorded fall and landing thresholds match the active settings. CSV, SQLite, Both and exported ZIPs include these fields (schema 3); restart an already-running backend after updating. Older recordings remain readable/exportable with the new settings absent/unknown. The separate flicker CSV only logs flashing stretches.
+
+The development bench also has both controls and accepts `&windOff=1` and `&windThresholdOff=1` for repeatable checks. The difficulty measurements below describe the default, normal-wind rules.
+
 ## Fireflies as an SSVEP stimulus (opt-in)
 
 **Fireflies blink at 15 Hz (SSVEP)** in the side panel makes each firefly's lantern a square-wave flicker while the game runs. It is **off by default** and remembered per browser; it is forced off when the system asks for reduced motion. Off, lanterns glow and pulse gently at 0.8 Hz. Flicker stops whenever the cairn pauses or falls.

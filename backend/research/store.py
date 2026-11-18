@@ -64,6 +64,8 @@ class Reader:
             for line in r:
                 if table == 'channel_metrics' and len(line) == len(cols)-3:
                     line += ['', '', '']
+                if table == 'game_state' and len(line) == len(cols)-2:
+                    line += ['', '']  # v1/v2 recordings predate wind toggles; unknown settings
                 if len(line) != len(cols):
                     continue
                 d = {c: parse(v, t) for c, v, t in zip(cols, line, types)}
@@ -73,7 +75,8 @@ class Reader:
         db = sqlite3.connect(f'file:{self.db_path}?mode=ro', uri=True)
         try:
             for row in db.execute(f'SELECT * FROM "{table}" ORDER BY rowid'):
-                d = dict(zip(cols, row))
+                d = dict.fromkeys(cols)
+                d.update(zip(cols, row))
                 if where is None or where(d):
                     yield d
         finally:
@@ -81,8 +84,8 @@ class Reader:
 
     def columns_of(self, table, names):
         """Yield typed tuples of just `names`, in stored order (cheaper than rows() for eeg)."""
-        if table == 'channel_metrics':
-            # Older recordings lack v2 hum/selection columns; use the compatible reader.
+        if table in ('channel_metrics', 'game_state'):
+            # Older recordings lack newer trailing columns; use the compatible reader.
             for row in self.rows(table):
                 yield tuple(row.get(n) for n in names)
             return
@@ -123,6 +126,8 @@ class Reader:
                         vals = next(csv.reader([line]))
                         if table == 'channel_metrics' and len(vals) == len(cols)-3:
                             vals += ['', '', '']
+                        if table == 'game_state' and len(vals) == len(cols)-2:
+                            vals += ['', '']
                         if len(vals) == len(cols):
                             yield {c: parse(v, t) for c, v, t in zip(cols, vals, types)}
                     i += 1
@@ -131,7 +136,9 @@ class Reader:
         try:
             for a, b in spans:
                 for r in db.execute(f'SELECT * FROM "{table}" ORDER BY rowid LIMIT ? OFFSET ?', (b - a, a)):
-                    yield dict(zip(cols, r))
+                    d = dict.fromkeys(cols)
+                    d.update(zip(cols, r))
+                    yield d
         finally:
             db.close()
 
@@ -314,6 +321,9 @@ class Store:
             md = json.dumps(shared, indent=2).encode('utf-8')
             z.writestr(f'{name}/metadata.json', md)
             dictionary = schema.data_dictionary()
+            if meta.get('schema_version', 1) < 3:
+                dictionary = ('LEGACY RECORDING: cairn_wind_off and cairn_wind_threshold_off were not recorded. '
+                              'Missing settings remain unknown; original export columns are preserved.\n\n' + dictionary)
             if meta.get('schema_version', 1) == 1:
                 dictionary = ('LEGACY SCHEMA 1 RECORDING: std_uv and ptp_uv are RAW, not filtered. '
                               'The selected, raw_ptp_uv and hum_rms_uv columns described below were not recorded. '

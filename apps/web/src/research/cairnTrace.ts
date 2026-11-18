@@ -7,6 +7,7 @@ import {
   dropSway,
   fallAngle,
   gustLoad,
+  thresholdGustLoad,
   isSteady,
   tierOf,
   BUG_HZ,
@@ -176,6 +177,8 @@ export class CairnTrace {
       stones_at_start: s.stones,
       hand_phase: s.phase,
       steady: this.steady,
+      wind_off: s.windOff,
+      wind_threshold_off: s.windThresholdOff,
       flicker_requested: this.config?.flicker ?? false,
       flicker_hz: BUG_HZ,
       reduced_motion: this.config?.reducedMotion ?? false,
@@ -194,6 +197,18 @@ export class CairnTrace {
   /** An externally forced (preview/debug) effect; logged with its parameters. */
   forcedEffect(index: number) {
     this.forced.add(index);
+  }
+
+  /** Applied by the stage even while paused, before any subsequent model step. */
+  windSettingsChanged(prev: CairnState, next: CairnState, t = browserNow()) {
+    this.last = next;
+    this.emit("wind_setting_changed", t, "operator_toggle", {
+      old_wind_off: prev.windOff,
+      wind_off: next.windOff,
+      old_wind_threshold_off: prev.windThresholdOff,
+      wind_threshold_off: next.windThresholdOff,
+    });
+    this.snapshot(next, "transition");
   }
 
   private effectStarted(e: CairnEvent, t: number, partial = false) {
@@ -216,7 +231,9 @@ export class CairnTrace {
       flicker_requested: bug ? this.ctx.flickerRequested : false,
       flashing,
       flicker_hz: flashing ? BUG_HZ : null,
-      peak_push_rad_s2: bug ? null : r6(GUST_PUSH * e.strength),
+      peak_push_rad_s2: bug ? null : this.last?.windOff ? 0 : r6(GUST_PUSH * e.strength),
+      wind_off: this.last?.windOff ?? false,
+      wind_threshold_off: this.last?.windThresholdOff ?? false,
     });
   }
 
@@ -310,7 +327,7 @@ export class CairnTrace {
         stone_index: prev.stones,
         mode: next.mode,
         sway_rad: r6(next.sway),
-        drop_sway_threshold_rad: r6(dropSway(prev.stones, gust)),
+        drop_sway_threshold_rad: r6(dropSway(prev.stones, thresholdGustLoad(next))),
         steady_sway_rad: STEADY_SWAY,
         gust_load: r6(gust),
       });
@@ -325,8 +342,8 @@ export class CairnTrace {
         angle_rad: r6(next.angle),
         velocity_rad_s: r6(next.velocity),
         sway_rad: r6(next.sway),
-        fall_angle_rad: r6(fallAngle(next.stones, gust)),
-        drop_sway_rad: r6(dropSway(next.stones, gust)),
+        fall_angle_rad: r6(fallAngle(next.stones, thresholdGustLoad(next))),
+        drop_sway_rad: r6(dropSway(next.stones, thresholdGustLoad(next))),
         gust_load: r6(gust),
         focus: r6(next.focus),
         unrest: r6(next.unrest),
@@ -361,8 +378,10 @@ export class CairnTrace {
       angle_rad: r6(s.angle),
       velocity_rad_s: r6(s.velocity),
       sway_rad: r6(s.sway),
-      fall_angle_threshold_rad: r6(fallAngle(s.stones, gust)),
-      drop_sway_threshold_rad: r6(dropSway(s.stones, gust)),
+      fall_angle_threshold_rad: r6(fallAngle(s.stones, thresholdGustLoad(s))),
+      drop_sway_threshold_rad: r6(dropSway(s.stones, thresholdGustLoad(s))),
+      wind_off: s.windOff,
+      wind_threshold_off: s.windThresholdOff,
       gust_load: r6(gust),
       focus: r6(s.focus),
       unrest: r6(s.unrest),
@@ -497,8 +516,10 @@ export class CairnTrace {
         cairn_angle_rad: r6(s.angle),
         cairn_velocity_rad_s: r6(s.velocity),
         cairn_sway_rad: r6(s.sway),
-        cairn_fall_angle_rad: r6(fallAngle(s.stones, gust)),
-        cairn_drop_sway_rad: r6(dropSway(s.stones, gust)),
+        cairn_fall_angle_rad: r6(fallAngle(s.stones, thresholdGustLoad(s))),
+        cairn_drop_sway_rad: r6(dropSway(s.stones, thresholdGustLoad(s))),
+        cairn_wind_off: s.windOff,
+        cairn_wind_threshold_off: s.windThresholdOff,
         cairn_focus: r6(s.focus),
         cairn_unrest: r6(s.unrest),
         cairn_hand_phase: s.phase,

@@ -1,4 +1,4 @@
-"""Research recording schema v2: one logical model for CSV, SQLite and the CSV ZIP export.
+"""Research recording schema v3: one logical model for CSV, SQLite and the CSV ZIP export.
 
 Every table starts with recording_id and participant_id. Types:
   TEXT, INTEGER, REAL, BOOL (0/1), JSON (text). Free-text columns are marked
@@ -13,7 +13,7 @@ import math
 
 from backend.signal import PROCESSING_VERSION
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 ALGORITHM_VERSION = PROCESSING_VERSION
 
 C = tuple  # (name, type, unit, description, free_text?)
@@ -178,6 +178,8 @@ TABLES: dict[str, list[tuple]] = {
         ('garden_audio_effective', 'BOOL', '', 'Audio context running and unmuted'),
         ('garden_volume', 'REAL', '0–1', 'Volume'),
         ('garden_reduced_motion', 'BOOL', '', 'prefers-reduced-motion'),
+        ('cairn_wind_off', 'BOOL', '', 'All wind forces, visuals and gust threshold reductions disabled'),
+        ('cairn_wind_threshold_off', 'BOOL', '', 'Gust threshold reductions disabled; wind forces and visuals remain unless wind_off'),
     ],
     'events': COMMON + [
         ('event_id', 'TEXT', '', 'UUID; idempotent key'),
@@ -396,6 +398,7 @@ EVENT_DOC = [
     '| bug_started / bug_ended / gust_started / gust_ended | browser (Cairn model step) | Seeded effects with effect_id, strength, direction, path, duration, forced flag. bug_started: flicker_requested, flashing (settings call for blinking) and flicker_hz; bug_ended: flashed, flicker_hz, flickered_ms, flicker_stretches; gust_ended: peak_gust_load and when. ended reason: completed, replaced (forced effect), cairn_fell, or the round outcome that interrupted it |',
     '| gust_peak_reached / gust_easing | browser (Cairn model step) | A gust reached full load (25% of its duration) and began easing off (60%) |',
     '| flicker_setting_changed / flicker_started / flicker_ended | browser | Lantern flicker requested setting, and actual blinking stretches (frame-callback times; optical onset unverified) with hz, the square-wave formula that rebuilds the on/off state of every frame, duration and cycle count. ended reason: bug_ended, paused, setting_off, reduced_motion, cairn_fell, round_reset, round_ended, stage_unmounted |',
+    '| wind_setting_changed | browser (Cairn stage) | old_wind_off, wind_off, old_wind_threshold_off, wind_threshold_off; applied immediately even while paused. Both default false. wind_off disables all wind forces, visuals and threshold reductions and takes priority. wind_threshold_off alone preserves forces/visuals but removes both gust threshold reductions. round_started includes both settings, including partial starts; game_state includes cairn_wind_off and cairn_wind_threshold_off. Seeded gust events keep their schedule while disabled, with zero effective load/push |',
     '| cairn_fell | browser (Cairn model step) | Fall: cause sway or drop, tilt/sway and both thresholds at that step, active effect, trigger input frame. Mechanics only, not a cause in the participant |',
     '| tumble_started / tumble_settled | browser (Cairn animation frame) | Render onset of the collapse after cairn_fell (stones tumbling, direction, whether the dropped stone joined) and the stones coming to rest. They follow round_ended and carry the id of the fallen round |',
     '| plant_started / plant_ended / plant_paused / plant_resumed | browser | Garden plant lifecycle (plant_ended payload has the plant summary) |',

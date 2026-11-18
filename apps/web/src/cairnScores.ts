@@ -2,7 +2,7 @@
 // stimuli. Stored in localStorage purely as a convenience: every read/write is
 // guarded, and play works without storage.
 import { useCallback, useState } from "react";
-import type { CairnEvent, CairnMode, FallCause } from "./cairnSimulation";
+import type { CairnEvent, CairnMode, FallCause, CairnWindSettings } from "./cairnSimulation";
 
 export type CairnEnding = FallCause | "ended";
 export type CairnRound = {
@@ -26,7 +26,7 @@ export type CairnStimulus = {
   mode: CairnMode;
   source: string;
 };
-export type CairnRecord = {
+export type CairnRecord = CairnWindSettings & {
   mode: CairnMode;
   /** Opt-in: bugs' lanterns blink for SSVEP. Off by default. */
   flicker: boolean;
@@ -45,6 +45,8 @@ const ENDINGS: CairnEnding[] = ["sway", "drop", "ended"];
 export const emptyRecord = (): CairnRecord => ({
   mode: "calm",
   flicker: false,
+  windOff: false,
+  windThresholdOff: false,
   best: {},
   rounds: [],
   stimuli: [],
@@ -102,6 +104,8 @@ export function sanitizeRecord(raw: unknown): CairnRecord {
   return {
     mode: MODES.includes(r.mode as CairnMode) ? (r.mode as CairnMode) : d.mode,
     flicker: r.flicker === true,
+    windOff: r.windOff === true,
+    windThresholdOff: r.windThresholdOff === true,
     best,
     rounds,
     stimuli,

@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import CairnStage, { BUG_HZ, type CairnControls, type CairnView } from "./CairnStage";
 import PaperNumber from "./PaperNumber";
-import { initialCairn, fallAngle, gustLoad, tierOf, type CairnMode } from "./cairnSimulation";
+import { initialCairn, fallAngle, thresholdGustLoad, tierOf, type CairnMode } from "./cairnSimulation";
 import { duration } from "./SignalPanel";
 
 type Trace = { recording: string; rate_hz: number; score: number[]; usable: number[] };
@@ -38,6 +38,8 @@ export default function CairnPreview() {
   const [reset, setReset] = useState(0);
   const [position, setPosition] = useState(Number(params.get("at") ?? 0));
   const [flicker, setFlicker] = useState(params.get("flicker") === "1");
+  const [windOff, setWindOff] = useState(params.get("windOff") === "1");
+  const [windThresholdOff, setWindThresholdOff] = useState(params.get("windThresholdOff") === "1");
   const [event, setEvent] = useState<CairnControls["debugEvent"]>();
   const [strength, setStrength] = useState(0.5);
   const [view, setView] = useState<CairnView>({ ...initialCairn(mode), collapse: 0, settled: false });
@@ -94,7 +96,7 @@ export default function CairnPreview() {
         <section className="cairn-stage">
           <div className="cairn-frame">
             <CairnStage
-              controls={{ running: playing && usable, score, reset, mode, timeScale: speed, flicker, debugEvent: event }}
+              controls={{ running: playing && usable, score, reset, mode, timeScale: speed, flicker, windOff, windThresholdOff, debugEvent: event }}
               onState={setView}
               onStimulus={(s) => console.info("flicker stimulus", s)}
             />
@@ -229,6 +231,12 @@ export default function CairnPreview() {
             ))}
           </div>
           <label className="cairn-flicker-inline">
+            <input type="checkbox" checked={windOff} onChange={(e) => setWindOff(e.target.checked)} /> Wind off completely
+          </label>
+          <label className="cairn-flicker-inline">
+            <input type="checkbox" checked={windThresholdOff} onChange={(e) => setWindThresholdOff(e.target.checked)} /> Wind does not lower tumble thresholds
+          </label>
+          <label className="cairn-flicker-inline">
             <input type="checkbox" checked={flicker} onChange={(e) => setFlicker(e.target.checked)} /> Blink
             at {BUG_HZ} Hz
           </label>
@@ -253,7 +261,7 @@ export default function CairnPreview() {
             </dd>
             <dt>Level · topple limit</dt>
             <dd>
-              {tierOf(view.stones) + 1} · {fallAngle(view.stones, gustLoad(view)).toFixed(3)} rad
+              {tierOf(view.stones) + 1} · {fallAngle(view.stones, thresholdGustLoad(view)).toFixed(3)} rad
             </dd>
             <dt>Event · next</dt>
             <dd>

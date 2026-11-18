@@ -990,6 +990,7 @@ export default function App() {
           })}
           onRound={(round) => updateCairnRecord((r) => addRound(r, round))}
           onFlicker={(on) => updateCairnRecord((r) => ({ ...r, flicker: on }))}
+          onWindSettings={(settings) => updateCairnRecord((r) => ({ ...r, ...settings }))}
           onStimulus={(s) => updateCairnRecord((r) => addStimulus(r, s))}
           onStart={startCairn}
           onPause={() => setCairnRunning(false)}

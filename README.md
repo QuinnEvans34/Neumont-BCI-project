@@ -39,6 +39,8 @@ backend after updating to load the analytics endpoints.
 
 **Documentation:** start at the [docs index](docs/README.md).
 
+**Cairn wind controls (0.2.0):** beside the firefly toggle, turn wind off completely or keep wind movement/visuals while preventing gusts from lowering tumble thresholds. Both default off. Settings and changes are included in research recordings (CSV/SQLite/ZIP, schema 3). Restart the backend after updating. See [wind controls](docs/workspace/dashboard/games/cairn/README.md#wind-controls).
+
 - [Workspace: architecture, app guides, dependencies and releases](docs/workspace/README.md)
 - [Project: MVP, roadmap, pitch, hardware and research](docs/project/README.md)
 - [Archive: original blueprint, task briefs, handoffs and verification records](docs/archive/README.md)

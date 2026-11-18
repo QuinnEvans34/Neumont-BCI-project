@@ -6,6 +6,10 @@ The dashboard header displays the version from `package.json`, build channel, br
 
 ## Release history
 
+### 0.2.0 - prepared 2026-11-18 (pending PR)
+
+`codex/cairn-wind-controls` adds compatible Cairn wind controls, so this uses the required minor increment from `0.1.2`. Both default off. Wind-off removes forces, visuals and gust threshold reductions; threshold-only preserves forces/visuals and disables reductions to both tumble limits. Settings persist per browser and are recorded at round start, on changes and in game-state rows across CSV/SQLite/ZIP (schema 3). Legacy recordings remain readable/exportable. See the [current overview](../../workspace/version.md), [outgoing overview](../versions/0.1.2/README.md) and [validation record](../sessions/2026-11-18/cairn-wind-controls.md). This is a feature branch, not a merged production release.
+
 ### 0.1.2 - 2026-11-11
 
 Release pull request: [#3](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/3), `codex/visual-map-locations` into `main`.

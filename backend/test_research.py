@@ -95,6 +95,66 @@ def read_csv(folder, table):
 
 
 class StorageTests(unittest.TestCase):
+    def test_wind_settings_survive_csv_sqlite_and_zip(self):
+        for fmt in ('csv', 'sqlite', 'both'):
+            with self.subTest(fmt=fmt), tempfile.TemporaryDirectory() as tmp:
+                rig = Rig(tmp, fmt)
+                rig.connect_live()
+                rec = rig.start()
+                combinations = [(False, False), (False, True), (True, True), (True, False)]
+                items = []
+                for i, (off, threshold_off) in enumerate(combinations):
+                    items.extend([
+                        dict(seq=2*i+1, kind='event', type='wind_setting_changed', event_id=f'wind-{i}',
+                             game='cairn', round_id='r1', t_browser_ms=1e12+i,
+                             payload=dict(wind_off=off, wind_threshold_off=threshold_off)),
+                        dict(seq=2*i+2, kind='state', game='cairn', round_id='r1', t_browser_ms=1e12+i,
+                             cairn_wind_off=off, cairn_wind_threshold_off=threshold_off),
+                    ])
+                rig.s.research.items(rec.id, rec.token, items)
+                folder = rig.finish(rec)
+                rows = list(Reader(folder).rows('game_state'))
+                self.assertEqual([(bool(r['cairn_wind_off']), bool(r['cairn_wind_threshold_off'])) for r in rows], combinations)
+                path, _ = rig.store.export_zip(rec.id)
+                with zipfile.ZipFile(path) as z:
+                    exported = {Path(name).name: z.read(name) for name in z.namelist()}
+                    states = list(csv.DictReader(io.StringIO(exported['game_state.csv'].decode('utf-8'))))
+                    self.assertEqual([(r['cairn_wind_off'], r['cairn_wind_threshold_off']) for r in states],
+                                     [(str(int(a)), str(int(b))) for a, b in combinations])
+                    events = list(csv.DictReader(io.StringIO(exported['events.csv'].decode('utf-8'))))
+                    payloads = [json.loads(r['payload_json']) for r in events if r['type'] == 'wind_setting_changed']
+                    self.assertEqual([(p['wind_off'], p['wind_threshold_off']) for p in payloads], combinations)
+
+    def test_legacy_game_state_remains_readable_without_wind_columns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / 'eeg.csv').write_text(schema.header('eeg') + '\n', encoding='utf-8')
+            cols = schema.columns('game_state')[:-2]
+            with (folder / 'game_state.csv').open('w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(cols)
+                writer.writerow(['cairn' if c == 'game' else '5' if c == 'cairn_stones' else '' for c in cols])
+            reader = Reader(folder)
+            for rows in (list(reader.rows('game_state')), list(reader.row_spans('game_state', [(0, 1)]))):
+                self.assertEqual(len(rows), 1)
+                self.assertEqual(rows[0]['cairn_stones'], 5)
+                self.assertIsNone(rows[0]['cairn_wind_off'])
+            self.assertEqual(list(reader.columns_of('game_state', ['cairn_stones', 'cairn_wind_off'])), [(5, None)])
+            legacy_db = folder / 'legacy-sqlite'
+            legacy_db.mkdir()
+            db = sqlite3.connect(legacy_db / 'recording.sqlite')
+            try:
+                definitions = ', '.join(f'"{c}" {t}' for c, t in zip(cols, schema.col_types('game_state')))
+                db.execute(f'CREATE TABLE game_state ({definitions})')
+                db.execute('INSERT INTO game_state (game, cairn_stones) VALUES (?, ?)', ('cairn', 5))
+                db.commit()
+            finally:
+                db.close()
+            reader = Reader(legacy_db)
+            self.assertEqual(list(reader.rows('game_state'))[0]['cairn_wind_off'], None)
+            self.assertEqual(list(reader.row_spans('game_state', [(0, 1)]))[0]['cairn_stones'], 5)
+            self.assertEqual(list(reader.columns_of('game_state', ['cairn_stones', 'cairn_wind_off'])), [(5, None)])
+
     def test_every_sample_once_with_flags_and_breaks_not_filled(self):
         with tempfile.TemporaryDirectory() as tmp:
             rig = Rig(tmp)

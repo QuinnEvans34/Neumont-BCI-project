@@ -2093,6 +2093,7 @@ button.danger {
 }
 .cairn-flicker input,
 .cairn-flicker-inline input {
+  flex-shrink: 0;
   width: 16px;
   height: 16px;
   margin: 0;

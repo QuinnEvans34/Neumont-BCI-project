@@ -1,5 +1,9 @@
 # Documentation change log
 
+## 2026-11-18
+
+- Prepared `0.2.0` on `codex/cairn-wind-controls`: documented both Cairn wind controls, precedence/defaults, immediate changes, recording schema 3 and old-recording compatibility. Archived the outgoing `0.1.2` overview, updated the shared package/document version and added a [validation record](../sessions/2026-11-18/cairn-wind-controls.md). Pull request review is pending.
+
 ## 2026-11-11
 
 - Release `0.1.2` ([PR #3](https://github.com/QuinnEvans34/Neumont-BCI-project/pull/3)): moved the 26 existing SVGs beside their map guides and the project roadmap to `project/marketing/timeline.md`, updated incoming and relative links plus exporter destinations, removed the old ignore exception, and archived the `0.1.1` overview. SVG content and the PDF atlas are unchanged.
