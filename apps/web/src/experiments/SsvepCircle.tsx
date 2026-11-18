@@ -7,6 +7,7 @@ import { analyzePreflight, browserNow, intervalFails, type Preflight } from "./t
 import { circleOn, observedFrequency, type CircleSegment, type CircleSettings } from "./circle";
 import type { CircleMetrics, ExperimentTelemetry } from "./types";
 import "./circle.css";
+import CircleFrequencyReadout from "./CircleFrequencyReadout";
 
 type Props = { telemetry: Telemetry | null; fresh: boolean; connected: boolean; onExit: () => void };
 type Phase = "idle" | "checking" | "starting" | "running" | "stopping" | "ended";
@@ -56,7 +57,13 @@ export default function SsvepCircle({ telemetry, fresh, connected, onExit }: Pro
   const researchActive = ["recording", "finalizing"].includes(telemetry?.research?.state ?? "");
   const canStart = rawOk && !other && !researchActive && preflight?.passed && acknowledged && !busy;
   const metrics = exp?.analysis.latest as unknown as CircleMetrics | undefined;
-  const showMetrics = Boolean(metrics && (phase === "ended" || (rawOk && !exp?.stale)));
+  const metricAge = metrics && telemetry ? (telemetry.samples_received - metrics.window[1]) / telemetry.sample_rate_hz : Infinity;
+  const liveMetrics = running && rawOk && !exp?.stale && exp?.state === "running" &&
+    exp.session_id === telemetry?.session_id && !exp.analysis.error && metricAge >= 0 && metricAge <= 1.5;
+  const showMetrics = Boolean(metrics && (phase === "ended" || liveMetrics));
+  const readingState = phase === "ended" ? "last" : running && (!rawOk || exp?.stale || exp?.analysis.error || (metrics && !liveMetrics))
+    ? "unavailable" : liveMetrics ? "live" : "waiting";
+  const electrodes = exp?.electrodes ?? memory.electrodes;
 
   function changePhase(value: Phase) { phaseRef.current = value; setPhase(value); }
 
@@ -305,10 +312,12 @@ export default function SsvepCircle({ telemetry, fresh, connected, onExit }: Pro
               onChange={(e) => setSettings((s) => ({ ...s, color: e.target.value }))} />
             <code>{settings.color.toUpperCase()}</code>
           </label>
-          <div className="circle-timing"><small>OBSERVED FLASH RATE</small><strong>{fmt(observed)} Hz</strong>
+          <div className="circle-timing"><small>OBSERVED FLASH RATE</small><strong>{running && rawOk ? fmt(observed) : "—"} Hz</strong>
             <small>Requested {settings.frequency_hz.toFixed(1)} Hz · display {preflight?.profile_hz ?? "—"} Hz</small></div>
           <button className="circle-stop" disabled={!running} onClick={() => stopRef.current("Stopped by participant")}>Stop · Esc</button>
         </div>
+        <CircleFrequencyReadout metrics={metrics} electrodes={electrodes} state={readingState}
+          observedHz={observed} source={exp?.mode ?? telemetry?.source} />
       </section>
 
       <div className="circle-setup">
@@ -359,7 +368,7 @@ export default function SsvepCircle({ telemetry, fresh, connected, onExit }: Pro
           <small>{showMetrics ? metrics?.valid_channels : 0} / 8 valid channels</small></div></div>
         <div className="table-scroll"><table className="data-table"><thead><tr>
           <th>Channel</th><th>Electrode</th><th>Dominant frequency</th><th>Alpha power</th><th>Signal</th>
-        </tr></thead><tbody>{memory.electrodes.map((name, i) => {
+        </tr></thead><tbody>{electrodes.map((name, i) => {
           const m = showMetrics ? metrics?.channels[i] : undefined;
           return <tr key={i}><td>CH{i + 1}</td><td>{name || "Unmapped"}</td>
             <td>{m?.valid ? `${fmt(m.dominant_hz, 1)} Hz` : "—"}</td>
